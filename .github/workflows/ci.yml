@@ -12,14 +12,33 @@ concurrency:
 
 jobs:
   test:
-    name: Build and test
-    runs-on: macos-26
+    # "Build and test" is the check required by the branch protection rule on
+    # main, so its name must stay exactly as it is.
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Build and test
+            os: macos-26
+          # An older OS than the default runner. The macOS 15 image defaults to
+          # Xcode 16, which is too old for this project, so select Xcode 26.3.
+          - name: Build and test (macOS 15)
+            os: macos-15
+            xcode: /Applications/Xcode_26.3.app
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Select Xcode
+        if: matrix.xcode != ''
+        run: sudo xcode-select -s "${{ matrix.xcode }}"
+
+      - name: Show versions
+        run: |
+          sw_vers
+          xcodebuild -version
 
       # The project is signed with a personal team, which the runner doesn't
       # have, so build with an ad-hoc signature instead.
@@ -38,5 +57,5 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: TestResults
+          name: TestResults-${{ matrix.os }}
           path: TestResults.xcresult

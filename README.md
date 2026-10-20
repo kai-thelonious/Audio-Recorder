@@ -12,7 +12,7 @@ It uses Core Audio process taps, so it captures system audio directly: no virtua
 
 ## Requirements
 
-- macOS 14.2 or later
+- macOS 14.2 or later (CI builds and runs the tests on macOS 15 and macOS 26; macOS 14 has not been tested)
 
 ## Usage
 
