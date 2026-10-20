@@ -11,6 +11,14 @@ final class RecorderViewModel {
     private(set) var levels = [Float](repeating: 0, count: WaveBars.barCount)
     private(set) var elapsed: TimeInterval = 0
     private(set) var lastFileURL: URL?
+    /// Set when a recording has captured nothing but silence for a few seconds.
+    /// That happens when nothing is playing, and also when audio capture
+    /// permission was denied (macOS then delivers silence instead of an error).
+    private(set) var silenceHint: String?
+
+    static let silenceThreshold: Float = 0.0001          // about -80 dB
+    static let silenceWarningDelay: TimeInterval = 3     // seconds
+    static let silenceMessage = "No audio detected. Is something playing? Check the Privacy settings."
 
     @ObservationIgnored private let recorder: AudioRecording
     @ObservationIgnored private let resolveSource: @MainActor (String) throws -> ResolvedSource
@@ -19,6 +27,7 @@ final class RecorderViewModel {
     @ObservationIgnored private let notificationCenter: NotificationCenter
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var fileURL: URL?
+    @ObservationIgnored private var heardAudio = false
     @ObservationIgnored private var startDate = Date()
     @ObservationIgnored private var meterTimer: Timer?
 
@@ -94,6 +103,8 @@ final class RecorderViewModel {
 
     private func startMetering() {
         elapsed = 0
+        heardAudio = false
+        silenceHint = nil
         startDate = now()
         meterTimer?.invalidate()
         meterTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
@@ -104,6 +115,7 @@ final class RecorderViewModel {
     private func stopMetering() {
         meterTimer?.invalidate()
         meterTimer = nil
+        silenceHint = nil
         levels = [Float](repeating: 0, count: WaveBars.barCount)
     }
 
@@ -112,10 +124,16 @@ final class RecorderViewModel {
             finish(failure: failure)
             return
         }
-        let level = Self.meterLevel(peak: recorder.takePeak(), previous: levels.last ?? 0)
+        let peak = recorder.takePeak()
+        let level = Self.meterLevel(peak: peak, previous: levels.last ?? 0)
         levels.removeFirst()
         levels.append(level)
         elapsed = now().timeIntervalSince(startDate)
+
+        // Warn only if nothing at all has been heard since recording started, so
+        // a quiet passage in a song never triggers it.
+        if peak > Self.silenceThreshold { heardAudio = true }
+        silenceHint = !heardAudio && elapsed >= Self.silenceWarningDelay ? Self.silenceMessage : nil
     }
 
     /// Maps -50 dB…0 dB onto 0…1, with a quick attack and a gentle decay.

@@ -11,6 +11,7 @@ struct MenuBarContent: View {
             recorder.toggleRecording()
         }
         Text(recorder.status)
+        if let hint = recorder.silenceHint { Text(hint) }
         SourceMenuSection(isRecording: recorder.isRecording)
 
         Divider()
