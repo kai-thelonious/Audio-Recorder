@@ -74,6 +74,10 @@ AudioRecorderTests/   unit tests (Swift Testing)
 Config/       build settings (Shared.xcconfig; your own signing goes in the git-ignored Local.xcconfig)
 ```
 
+## Contributing
+
+Changes go through a pull request: branch off `main`, fill in the pull request template (summary, test plan, what isn't covered), and make sure the CI checks pass. User-visible changes get a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE)
