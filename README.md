@@ -1,5 +1,7 @@
 # AudioRecorder
 
+[![CI](https://github.com/kai-thelonious/Audio-Recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/kai-thelonious/Audio-Recorder/actions/workflows/ci.yml)
+
 A small macOS app that records everything your Mac is playing — music, videos, calls — to a WAV file.
 
 It uses Core Audio process taps, so it captures system audio directly: no virtual audio driver, no loopback device, and it works the same whether you're listening on speakers, headphones or Bluetooth.
