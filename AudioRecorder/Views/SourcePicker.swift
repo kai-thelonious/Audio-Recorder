@@ -35,13 +35,14 @@ private struct SourceOptions: View {
 /// Window picker.
 struct SourcePicker: View {
     let isRecording: Bool
-    @AppStorage(AudioSources.defaultsKey) private var bundleID = ""
+    @Environment(AppSettings.self) private var settings
     @StateObject private var list = AudioSourceList()
     private let ticker = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        Picker("Source", selection: $bundleID) {
-            SourceOptions(choices: SourceChoices(playing: list.apps, selected: bundleID))
+        @Bindable var settings = settings
+        Picker("Source", selection: $settings.sourceBundleID) {
+            SourceOptions(choices: SourceChoices(playing: list.apps, selected: settings.sourceBundleID))
         }
         .pickerStyle(.menu)
         .disabled(isRecording)
@@ -54,12 +55,13 @@ struct SourcePicker: View {
 /// Menu bar section; the menu rebuilds each time it opens, which refreshes the list.
 struct SourceMenuSection: View {
     let isRecording: Bool
-    @AppStorage(AudioSources.defaultsKey) private var bundleID = ""
+    @Environment(AppSettings.self) private var settings
     @StateObject private var list = AudioSourceList()
 
     var body: some View {
-        Picker("Source", selection: $bundleID) {
-            SourceOptions(choices: SourceChoices(playing: list.apps, selected: bundleID))
+        @Bindable var settings = settings
+        Picker("Source", selection: $settings.sourceBundleID) {
+            SourceOptions(choices: SourceChoices(playing: list.apps, selected: settings.sourceBundleID))
         }
         .pickerStyle(.menu)
         .disabled(isRecording)

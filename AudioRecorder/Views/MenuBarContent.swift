@@ -3,7 +3,7 @@ import AppKit
 
 struct MenuBarContent: View {
     let recorder: RecorderViewModel
-    @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
+    @Environment(AppSettings.self) private var settings
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -15,9 +15,9 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Text("Folder: \((folderPath as NSString).abbreviatingWithTildeInPath)")
+        Text("Folder: \((settings.folderPath as NSString).abbreviatingWithTildeInPath)")
         Button("Choose Folder…") {
-            if let path = chooseFolderPath() { folderPath = path }
+            if let path = chooseFolderPath() { settings.folderPath = path }
         }
         .disabled(recorder.isRecording)
 
