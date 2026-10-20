@@ -66,6 +66,21 @@ struct AudioWriterTests {
         writer.close()
     }
 
+    @Test func theFileIsReadableWhileStillRecording() throws {
+        let temp = try TempFolder(); defer { temp.remove() }
+        let url = temp.url.appendingPathComponent("live.wav")
+        // Refresh the header after every buffer so the test doesn't need a second of audio.
+        let writer = try AudioWriter(url: url, format: format, headerUpdateInterval: 0.01)
+        let block = writer.ioBlock()
+        for _ in 0..<20 { deliver(buffer(frames: 4_800, amplitude: 0.3), to: block, on: writer.queue) }
+        // Not closed yet, as if the app had just crashed: the audio so far is already readable.
+        let readable = try frameCount(of: url)
+        #expect(readable > 0)
+        #expect(readable <= 96_000)
+        writer.close()
+        #expect(try frameCount(of: url) == 96_000)
+    }
+
     @Test func writingAfterCloseDoesNothing() throws {
         let temp = try TempFolder(); defer { temp.remove() }
         let url = temp.url.appendingPathComponent("out.wav")
