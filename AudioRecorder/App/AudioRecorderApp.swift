@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct AudioRecorderApp: App {
-    @StateObject private var recorder = SystemAudioTapRecorder()
+    @State private var recorder = RecorderViewModel()
 
     init() {
         // @AppStorage isn't usable here yet, so read the saved mode directly.

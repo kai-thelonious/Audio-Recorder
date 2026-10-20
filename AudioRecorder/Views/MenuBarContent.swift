@@ -2,18 +2,13 @@ import SwiftUI
 import AppKit
 
 struct MenuBarContent: View {
-    @ObservedObject var recorder: SystemAudioTapRecorder
+    let recorder: RecorderViewModel
     @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Button(recorder.isRecording ? "Stop Recording" : "Start Recording") {
-            if recorder.isRecording {
-                recorder.stop()
-            } else {
-                folderPath = Settings.validFolderPath(folderPath)
-                recorder.start(in: URL(fileURLWithPath: folderPath))
-            }
+            recorder.toggleRecording()
         }
         Text(recorder.status)
         SourceMenuSection(isRecording: recorder.isRecording)

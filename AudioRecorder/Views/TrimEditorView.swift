@@ -28,11 +28,11 @@ private extension View {
 }
 
 struct TrimEditorView: View {
-    @ObservedObject var recorder: SystemAudioTapRecorder
+    let recorder: RecorderViewModel
     @StateObject private var model: TrimModel
     @Environment(\.dismiss) private var dismiss
 
-    init(source: TrimSource, recorder: SystemAudioTapRecorder) {
+    init(source: TrimSource, recorder: RecorderViewModel) {
         self.recorder = recorder
         _model = StateObject(wrappedValue: TrimModel(sourceURL: source.url))
     }
@@ -73,8 +73,7 @@ struct TrimEditorView: View {
                 Button {
                     Task {
                         if let url = await model.save() {
-                            recorder.lastFileURL = url
-                            recorder.status = "Saved: \(url.lastPathComponent)"
+                            recorder.didSaveTrim(url)
                         }
                     }
                 } label: {
