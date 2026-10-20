@@ -1,11 +1,15 @@
 # Changelog
 
 All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). No version has been
-released yet, so everything is listed under **Unreleased**; the first tagged
-release will be 0.1.0.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Changes that are not in
+a release yet are listed under **Unreleased**.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-10-20
+
+The first tagged release. It is source only: there is no signed or notarized app yet, so build it with
+Xcode (see the README).
 
 ### Added
 - Record **a single app** instead of all system audio, chosen from a picker of apps that are currently playing sound. Browser and Electron helper processes are matched to their app. ([#1](https://github.com/kai-thelonious/Audio-Recorder/pull/1), [#13](https://github.com/kai-thelonious/Audio-Recorder/pull/13))
@@ -38,4 +42,5 @@ release will be 0.1.0.
 - A crash or force-quit during a recording can lose the last second or two of audio.
 - macOS 14 is the stated minimum but is not tested: CI covers macOS 15 and 26 only.
 
-[Unreleased]: https://github.com/kai-thelonious/Audio-Recorder/commits/main
+[Unreleased]: https://github.com/kai-thelonious/Audio-Recorder/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/kai-thelonious/Audio-Recorder/releases/tag/v0.1.0
