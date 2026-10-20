@@ -18,22 +18,18 @@ protocol AudioRecording: AnyObject {
 }
 
 /// Core Audio engine: a process tap wrapped in a tap-only aggregate device,
-/// written to a 16-bit WAV file. Holds no UI state.
+/// written to a 16-bit WAV file by an `AudioWriter`. Holds no UI state.
 final class TapRecorder: AudioRecording {
-    private let meter = PeakMeter()
-    private let writeFailure = FailureBox()
     private var createdFile = false
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var procID: AudioDeviceIOProcID?
-    private var audioFile: AVAudioFile?
-    private let ioQueue = DispatchQueue(label: "system-audio-tap-io")
+    private var writer: AudioWriter?
 
     // MARK: Start
 
     func start(source: ResolvedSource, fileURL url: URL) throws {
-        writeFailure.reset()
         createdFile = false
         do {
             try startCapture(source: source, fileURL: url)
@@ -85,33 +81,14 @@ final class TapRecorder: AudioRecording {
         status = AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregateID)
         guard status == noErr else { throw TapError.osStatus("Create aggregate device", status) }
 
-        // 5. Open the output file (16-bit PCM WAV; AVAudioFile converts on write)
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: format.sampleRate,
-            AVNumberOfChannelsKey: format.channelCount,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false
-        ]
-        audioFile = try AVAudioFile(
-            forWriting: url,
-            settings: settings,
-            commonFormat: format.commonFormat,
-            interleaved: format.isInterleaved
-        )
+        // 5. Open the output file (16-bit PCM WAV)
+        let writer = try AudioWriter(url: url, format: format)
+        self.writer = writer
         createdFile = true
 
-        // 6. Receive audio buffers from the aggregate device
-        status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, ioQueue) {
-            [weak self] _, inInputData, _, _, _ in
-            guard let self, let file = self.audioFile,
-                  let pcm = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inInputData)
-            else { return }
-            guard !self.writeFailure.hasFailed else { return }
-            self.meter.record(pcm)
-            do { try file.write(from: pcm) } catch { self.writeFailure.record(error) }
-        }
+        // 6. Receive audio buffers from the aggregate device. The block is made by
+        //    the writer, so it never touches this main-actor class from the audio thread.
+        status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, writer.queue, writer.ioBlock())
         guard status == noErr else { throw TapError.osStatus("Create IO proc", status) }
 
         status = AudioDeviceStart(aggregateID, procID)
@@ -125,11 +102,11 @@ final class TapRecorder: AudioRecording {
     }
 
     func takePeak() -> Float {
-        meter.takePeak()
+        writer?.takePeak() ?? 0
     }
 
     func takeError() -> Error? {
-        writeFailure.take()
+        writer?.takeError()
     }
 
     private func teardown() {
@@ -145,8 +122,9 @@ final class TapRecorder: AudioRecording {
         aggregateID = AudioObjectID(kAudioObjectUnknown)
         tapID = AudioObjectID(kAudioObjectUnknown)
 
-        // Serialize with the IO queue, then release the file so it gets finalized
-        ioQueue.sync { audioFile = nil }
+        // Wait for any buffer in flight, then release the file so it gets finalized
+        writer?.close()
+        writer = nil
     }
 
     // MARK: Core Audio helpers
