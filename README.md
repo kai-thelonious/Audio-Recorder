@@ -12,10 +12,11 @@ It uses Core Audio process taps, so it captures system audio directly: no virtua
 
 1. Open AudioRecorder.
 2. Optionally click **Choose Folder…** to pick where recordings are saved (defaults to `~/Music`).
-3. Click **Record**. The first time, macOS asks for permission to capture system audio — click **Allow**.
-4. Click **Stop**. The recording is saved as `Recording <date> <time>.wav` (16-bit PCM, stereo).
-5. Click **Trim** to open the editor: drag the start and end handles on the waveform, press **Play** (or Space) to preview the selection, then **Save Trim**. The trim is written as `<name> (trimmed).wav` next to the original, which is never modified.
-6. Drag the **Drag file** chip into Finder or a DAW to copy the file (the trimmed version once saved, otherwise the original).
+3. Optionally pick a **Source**: **All system audio** (default) or a single app that is currently playing audio (Spotify, Safari, Music, …). The list refreshes while you're not recording; the choice is remembered and the picker is locked during a recording. Per-app recordings include the app name in the file name, e.g. `Recording Spotify <date> <time>.wav`. If the chosen app isn't running or isn't playing yet, the app tells you instead of recording everything.
+4. Click **Record**. The first time, macOS asks for permission to capture system audio — click **Allow**.
+5. Click **Stop**. The recording is saved as `Recording <date> <time>.wav` (16-bit PCM, stereo).
+6. Click **Trim** to open the editor: drag the start and end handles on the waveform, press **Play** (or Space) to preview the selection, then **Save Trim**. The trim is written as `<name> (trimmed).wav` next to the original, which is never modified.
+7. Drag the **Drag file** chip into Finder or a DAW to copy the file (the trimmed version once saved, otherwise the original).
 
 ### Menu bar mode
 
