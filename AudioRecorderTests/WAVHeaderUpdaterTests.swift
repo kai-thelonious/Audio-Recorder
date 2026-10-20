@@ -21,12 +21,27 @@ struct WAVHeaderUpdaterTests {
     }
 
     /// A tiny mono 16-bit WAV whose header claims no audio, followed by `audioBytes` of data.
+    /// Built up piece by piece: one long `+` chain is too much for the older compilers on CI.
     private func handBuiltWAV(at url: URL, audioBytes: Int, extraChunk: Bool = false) throws {
         func le32(_ v: Int) -> [UInt8] { (0..<4).map { UInt8((v >> (8 * $0)) & 0xFF) } }
-        var bytes = Array("RIFF".utf8) + le32(0) + Array("WAVE".utf8)
-        bytes += Array("fmt ".utf8) + le32(16) + [1, 0, 1, 0] + le32(48_000) + le32(96_000) + [2, 0, 16, 0]
-        if extraChunk { bytes += Array("LIST".utf8) + le32(3) + [1, 2, 3, 0] }   // odd size: padded to even
-        bytes += Array("data".utf8) + le32(0) + [UInt8](repeating: 7, count: audioBytes)
+        var bytes: [UInt8] = []
+        bytes += Array("RIFF".utf8)
+        bytes += le32(0)
+        bytes += Array("WAVE".utf8)
+        bytes += Array("fmt ".utf8)
+        bytes += le32(16)
+        bytes += [1, 0, 1, 0]                       // PCM, mono
+        bytes += le32(48_000)                       // sample rate
+        bytes += le32(96_000)                       // byte rate
+        bytes += [2, 0, 16, 0]                      // block align 2, 16 bits
+        if extraChunk {
+            bytes += Array("LIST".utf8)
+            bytes += le32(3)
+            bytes += [1, 2, 3, 0]                   // odd size, padded to even
+        }
+        bytes += Array("data".utf8)
+        bytes += le32(0)
+        bytes += [UInt8](repeating: 7, count: audioBytes)
         try Data(bytes).write(to: url)
     }
 
