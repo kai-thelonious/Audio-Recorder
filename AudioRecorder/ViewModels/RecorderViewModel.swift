@@ -13,21 +13,21 @@ final class RecorderViewModel {
 
     @ObservationIgnored private let recorder: AudioRecording
     @ObservationIgnored private let resolveSource: @MainActor (String) throws -> ResolvedSource
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var fileURL: URL?
     @ObservationIgnored private var startDate = Date()
     @ObservationIgnored private var meterTimer: Timer?
 
     init(
+        settings: AppSettings,
         recorder: AudioRecording = TapRecorder(),
         resolveSource: (@MainActor (String) throws -> ResolvedSource)? = nil,
-        defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init
     ) {
         self.recorder = recorder
         self.resolveSource = resolveSource ?? { try AudioSources.resolve(bundleID: $0) }
-        self.defaults = defaults
+        self.settings = settings
         self.now = now
     }
 
@@ -39,10 +39,9 @@ final class RecorderViewModel {
 
     func start() {
         guard !isRecording else { return }
-        let folder = Settings.validFolderPath(defaults.string(forKey: Settings.folderKey) ?? Settings.defaultFolderPath)
-        defaults.set(folder, forKey: Settings.folderKey)
+        let folder = settings.validatedFolderPath()
         do {
-            let source = try resolveSource(defaults.string(forKey: AudioSources.defaultsKey) ?? "")
+            let source = try resolveSource(settings.sourceBundleID)
             let url = RecordingFileName.url(in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
             try recorder.start(source: source, fileURL: url)
             fileURL = url

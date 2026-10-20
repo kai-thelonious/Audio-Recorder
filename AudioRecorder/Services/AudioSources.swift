@@ -5,8 +5,6 @@ import CoreAudio
 // Core Audio process objects a process tap needs.
 
 enum AudioSources {
-    static let defaultsKey = "sourceBundleID"
-
     private struct AudioProcess {
         let object: AudioObjectID
         let pid: pid_t

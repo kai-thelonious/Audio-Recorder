@@ -8,8 +8,8 @@ private func formatElapsed(_ t: TimeInterval) -> String {
 
 struct ContentView: View {
     let recorder: RecorderViewModel
-    @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
-    @AppStorage(Settings.modeKey) private var mode = AppMode.window
+    @Binding var launchWindowPending: Bool
+    @Environment(AppSettings.self) private var settings
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var trimSource: TrimSource?
 
@@ -52,9 +52,9 @@ struct ContentView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    if let path = chooseFolderPath() { folderPath = path }
+                    if let path = chooseFolderPath() { settings.folderPath = path }
                 } label: {
-                    Label((folderPath as NSString).abbreviatingWithTildeInPath, systemImage: "folder")
+                    Label((settings.folderPath as NSString).abbreviatingWithTildeInPath, systemImage: "folder")
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -91,9 +91,9 @@ struct ContentView: View {
         .onAppear {
             // Menu bar only: the scene opens a window at launch; close just that one.
             // Later appearances (e.g. "Show Window") must stay open.
-            guard Settings.launchWindowPending else { return }
-            Settings.launchWindowPending = false
-            if mode == .menuBarOnly { dismissWindow(id: "main") }
+            guard launchWindowPending else { return }
+            launchWindowPending = false
+            if settings.mode == .menuBarOnly { dismissWindow(id: "main") }
         }
     }
 }
