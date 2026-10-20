@@ -161,9 +161,10 @@ private struct WaveformTrimView: View {
                         let barH = max(2, CGFloat(p) * size.height * 0.9)
                         let rect = CGRect(x: CGFloat(i) * step, y: (size.height - barH) / 2,
                                           width: max(1, step - 1), height: barH)
-                        context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(WaveBars.coral))
+                        context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .foreground)
                     }
                 }
+                .foregroundStyle(WaveBars.barColor)
 
                 // Shade outside the selection
                 Rectangle().fill(.black.opacity(0.45)).frame(width: startX, height: h)
