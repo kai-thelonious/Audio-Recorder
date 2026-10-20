@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build output
+build/
+DerivedData/
+*.xcarchive
+
+# Release artifacts
+*.zip
+*.dmg

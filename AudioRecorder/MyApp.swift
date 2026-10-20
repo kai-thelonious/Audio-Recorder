@@ -54,23 +54,16 @@ final class SystemAudioTapRecorder: ObservableObject {
                 throw TapError.message("Unsupported tap format")
             }
 
-            // 4. Wrap the tap in a private aggregate device
-            let outputUID = try defaultOutputDeviceUID()
+            // 4. Wrap the tap in a private aggregate device. It has no sub-devices,
+            //    so it runs on the tap's own clock and sample rate, independent of
+            //    whatever output device (speakers, Bluetooth, …) is in use.
             let aggregateDescription: [String: Any] = [
                 kAudioAggregateDeviceNameKey: "SystemAudioTapRecorder",
                 kAudioAggregateDeviceUIDKey: UUID().uuidString,
-                kAudioAggregateDeviceMainSubDeviceKey: outputUID,
                 kAudioAggregateDeviceIsPrivateKey: true,
-                kAudioAggregateDeviceIsStackedKey: false,
                 kAudioAggregateDeviceTapAutoStartKey: true,
-                kAudioAggregateDeviceSubDeviceListKey: [
-                    [kAudioSubDeviceUIDKey: outputUID]
-                ],
                 kAudioAggregateDeviceTapListKey: [
-                    [
-                        kAudioSubTapDriftCompensationKey: true,
-                        kAudioSubTapUIDKey: tapDesc.uuid.uuidString
-                    ]
+                    [kAudioSubTapUIDKey: tapDesc.uuid.uuidString]
                 ]
             ]
             status = AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregateID)
@@ -154,29 +147,6 @@ final class SystemAudioTapRecorder: ObservableObject {
         let status = AudioObjectGetPropertyData(tap, &address, 0, nil, &size, &asbd)
         guard status == noErr else { throw TapError.osStatus("Read tap format", status) }
         return asbd
-    }
-
-    private func defaultOutputDeviceUID() throws -> String {
-        var deviceID = AudioDeviceID(kAudioObjectUnknown)
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultSystemOutputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        var status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID
-        )
-        guard status == noErr else { throw TapError.osStatus("Get default output device", status) }
-
-        address.mSelector = kAudioDevicePropertyDeviceUID
-        var uid: CFString = "" as CFString
-        size = UInt32(MemoryLayout<CFString>.size)
-        status = withUnsafeMutablePointer(to: &uid) {
-            AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, $0)
-        }
-        guard status == noErr else { throw TapError.osStatus("Get device UID", status) }
-        return uid as String
     }
 
     private func set(recording: Bool, status: String) {
