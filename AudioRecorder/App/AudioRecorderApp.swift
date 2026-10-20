@@ -30,6 +30,7 @@ struct AudioRecorderApp: App {
         } label: {
             Image(systemName: recorder.isRecording ? "record.circle.fill" : "waveform")
                 .foregroundStyle(recorder.isRecording ? Color.red : Color.primary)
+                .accessibilityLabel(recorder.isRecording ? "AudioRecorder, recording" : "AudioRecorder")
         }
     }
 }

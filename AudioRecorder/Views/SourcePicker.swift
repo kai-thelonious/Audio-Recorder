@@ -36,7 +36,7 @@ private struct SourceOptions: View {
 struct SourcePicker: View {
     let isRecording: Bool
     @Environment(AppSettings.self) private var settings
-    @StateObject private var list = AudioSourceList()
+    @State private var list = AudioSourceList()
     private let ticker = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -56,7 +56,7 @@ struct SourcePicker: View {
 struct SourceMenuSection: View {
     let isRecording: Bool
     @Environment(AppSettings.self) private var settings
-    @StateObject private var list = AudioSourceList()
+    @State private var list = AudioSourceList()
 
     var body: some View {
         @Bindable var settings = settings

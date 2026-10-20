@@ -10,6 +10,7 @@ struct ContentView: View {
     let recorder: RecorderViewModel
     @Binding var launchWindowPending: Bool
     @Environment(AppSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var trimSource: TrimSource?
 
@@ -23,6 +24,7 @@ struct ContentView: View {
                     .font(.system(size: 34, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
+                    .accessibilityLabel(recorder.isRecording ? "Elapsed recording time" : "Recorder state")
                 Text(recorder.status)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -53,6 +55,7 @@ struct ContentView: View {
             .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
             .help(recorder.isRecording ? "Stop recording" : "Start recording")
+            .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Start recording")
 
             SourcePicker(isRecording: recorder.isRecording)
                 .labelsHidden()
@@ -93,7 +96,10 @@ struct ContentView: View {
         }
         .padding(28)
         .frame(width: 360)
-        .animation(.snappy, value: recorder.isRecording)
+        .animation(reduceMotion ? nil : .snappy, value: recorder.isRecording)
+        .onChange(of: recorder.silenceHint) { _, hint in
+            if let hint { AccessibilityNotification.Announcement(hint).post() }
+        }
         .glassWindowBackground()
         .sheet(item: $trimSource) { TrimEditorView(source: $0, recorder: recorder) }
         .onAppear {

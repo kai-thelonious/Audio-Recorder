@@ -1,20 +1,21 @@
-import Combine
 import AVFoundation
+import Observation
 
 @MainActor
-final class TrimModel: ObservableObject {
+@Observable
+final class TrimModel {
     let sourceURL: URL
-    @Published var data: WaveformData?
-    @Published var errorText: String?
-    @Published var start: Double = 0        // seconds
-    @Published var end: Double = 0          // seconds
-    @Published var playhead: Double = 0     // seconds
-    @Published var isPlaying = false
-    @Published var isSaving = false
-    @Published var savedURL: URL?
+    var data: WaveformData?
+    var errorText: String?
+    var start: Double = 0        // seconds
+    var end: Double = 0          // seconds
+    var playhead: Double = 0     // seconds
+    var isPlaying = false
+    var isSaving = false
+    var savedURL: URL?
 
-    private var player: AVAudioPlayer?
-    private var timer: Timer?
+    @ObservationIgnored private var player: AVAudioPlayer?
+    @ObservationIgnored private var timer: Timer?
 
     static let minLength = 0.05
 
@@ -54,6 +55,12 @@ final class TrimModel: ObservableObject {
         end = max(min(duration, value), start + Self.minLength)
         playhead = start
     }
+
+    /// Moves the start handle by `delta` seconds (used by VoiceOver's adjustable handles).
+    func nudgeStart(by delta: Double) { setStart(start + delta) }
+
+    /// Moves the end handle by `delta` seconds.
+    func nudgeEnd(by delta: Double) { setEnd(end + delta) }
 
     // MARK: Preview
 

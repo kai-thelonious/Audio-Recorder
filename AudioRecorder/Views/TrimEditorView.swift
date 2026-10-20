@@ -9,32 +9,14 @@ private func formatTime(_ t: Double) -> String {
     return String(format: "%d:%05.2f", minutes, seconds)
 }
 
-private extension View {
-    @ViewBuilder func trimGlassButton() -> some View {
-        if #available(macOS 26, *) {
-            self.buttonStyle(.glass)
-        } else {
-            self.buttonStyle(.bordered)
-        }
-    }
-
-    @ViewBuilder func trimSheetBackground() -> some View {
-        if #available(macOS 15, *) {
-            self.containerBackground(.regularMaterial, for: .window)
-        } else {
-            self
-        }
-    }
-}
-
 struct TrimEditorView: View {
     let recorder: RecorderViewModel
-    @StateObject private var model: TrimModel
+    @State private var model: TrimModel
     @Environment(\.dismiss) private var dismiss
 
     init(source: TrimSource, recorder: RecorderViewModel) {
         self.recorder = recorder
-        _model = StateObject(wrappedValue: TrimModel(sourceURL: source.url))
+        _model = State(initialValue: TrimModel(sourceURL: source.url))
     }
 
     var body: some View {
@@ -90,7 +72,7 @@ struct TrimEditorView: View {
                     }
                 }
             }
-            .trimGlassButton()
+            .glassButton()
             .controlSize(.small)
 
             if model.data != nil {
@@ -103,12 +85,12 @@ struct TrimEditorView: View {
 
             Button("Done") { dismiss() }
                 .keyboardShortcut(.cancelAction)
-                .trimGlassButton()
+                .glassButton()
                 .controlSize(.small)
         }
         .padding(24)
         .frame(width: 520)
-        .trimSheetBackground()
+        .glassWindowBackground()
         .task { await model.load() }
         .onDisappear { model.stopPlayback() }
     }
@@ -134,11 +116,12 @@ private struct DragChip: View {
             .background(Capsule().fill(.quaternary))
             .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
             .help(url.lastPathComponent)
+            .accessibilityHint("Drag into Finder or another app to copy the file")
     }
 }
 
 private struct WaveformTrimView: View {
-    @ObservedObject var model: TrimModel
+    let model: TrimModel
     private let handleWidth: CGFloat = 14
 
     var body: some View {
@@ -165,6 +148,7 @@ private struct WaveformTrimView: View {
                     }
                 }
                 .foregroundStyle(WaveBars.barColor)
+                .accessibilityHidden(true)
 
                 // Shade outside the selection
                 Rectangle().fill(.black.opacity(0.45)).frame(width: startX, height: h)
@@ -186,10 +170,22 @@ private struct WaveformTrimView: View {
                 }
 
                 handle(at: startX, height: h)
+                    .accessibilityElement()
+                    .accessibilityLabel("Trim start")
+                    .accessibilityValue(formatTime(model.start))
+                    .accessibilityAdjustableAction { direction in
+                        model.nudgeStart(by: direction == .increment ? 0.1 : -0.1)
+                    }
                     .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
                         model.setStart(Double(value.location.x / w) * duration)
                     })
                 handle(at: endX - handleWidth, height: h)
+                    .accessibilityElement()
+                    .accessibilityLabel("Trim end")
+                    .accessibilityValue(formatTime(model.end))
+                    .accessibilityAdjustableAction { direction in
+                        model.nudgeEnd(by: direction == .increment ? 0.1 : -0.1)
+                    }
                     .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
                         model.setEnd(Double(value.location.x / w) * duration)
                     })
