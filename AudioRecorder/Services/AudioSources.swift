@@ -21,7 +21,8 @@ enum AudioSources {
         for process in audioProcesses() where process.isRunningOutput {
             if let app = owner(of: process, in: apps) { found.insert(app.bundleIdentifier ?? "") }
         }
-        return apps
+        return
+            apps
             .compactMap { app -> AudioApp? in
                 guard let id = app.bundleIdentifier, found.contains(id) else { return nil }
                 return AudioApp(bundleID: id, name: app.localizedName ?? id)
@@ -41,7 +42,8 @@ enum AudioSources {
         guard !bundleID.isEmpty else { return ResolvedSource(processObjects: nil, appName: nil) }
         let apps = regularApps()
         guard let app = apps.first(where: { $0.bundleIdentifier == bundleID }) else {
-            throw TapError.message("\(Self.app(forBundleID: bundleID).name) isn't running. Open it, or choose All system audio.")
+            throw TapError.message(
+                "\(Self.app(forBundleID: bundleID).name) isn't running. Open it, or choose All system audio.")
         }
         let name = app.localizedName ?? bundleID
         let objects = audioProcesses()
@@ -66,9 +68,12 @@ enum AudioSources {
         let running = apps.compactMap { app in
             app.bundleIdentifier.map { RunningApp(bundleID: $0, pid: app.processIdentifier) }
         }
-        guard let match = AppMatching.owner(
-            ofProcessWithBundleID: process.bundleID, pid: process.pid, in: running, parentOf: { Self.parent(of: $0) }
-        ) else { return nil }
+        guard
+            let match = AppMatching.owner(
+                ofProcessWithBundleID: process.bundleID, pid: process.pid, in: running,
+                parentOf: { Self.parent(of: $0) }
+            )
+        else { return nil }
         return apps.first { $0.processIdentifier == match.pid }
     }
 
@@ -90,14 +95,17 @@ enum AudioSources {
         )
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size) == noErr,
-              size > 0 else { return [] }
+            size > 0
+        else { return [] }
         var objects = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
-        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &objects) == noErr
+        guard
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &objects)
+                == noErr
         else { return [] }
 
         return objects.compactMap { object in
             guard let pid: pid_t = value(object, kAudioProcessPropertyPID),
-                  let bundle: CFString = value(object, kAudioProcessPropertyBundleID)
+                let bundle: CFString = value(object, kAudioProcessPropertyBundleID)
             else { return nil }
             let running: UInt32 = value(object, kAudioProcessPropertyIsRunningOutput) ?? 0
             return AudioProcess(object: object, pid: pid, bundleID: bundle as String, isRunningOutput: running != 0)

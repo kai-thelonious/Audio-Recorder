@@ -16,8 +16,8 @@ final class RecorderViewModel {
     /// permission was denied (macOS then delivers silence instead of an error).
     private(set) var silenceHint: String?
 
-    static let silenceThreshold: Float = 0.0001          // about -80 dB
-    static let silenceWarningDelay: TimeInterval = 3     // seconds
+    static let silenceThreshold: Float = 0.0001  // about -80 dB
+    static let silenceWarningDelay: TimeInterval = 3  // seconds
     static let silenceMessage = "No audio detected. Is something playing? Check the Privacy settings."
     /// How often (seconds) a single-app recording checks that the app is still running.
     static let appCheckInterval: TimeInterval = 1
@@ -49,7 +49,8 @@ final class RecorderViewModel {
         self.settings = settings
         self.now = now
         self.notificationCenter = notificationCenter
-        self.isAppRunning = isAppRunning ?? { !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }
+        self.isAppRunning =
+            isAppRunning ?? { !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }
     }
 
     /// Finishes a recording in progress when the app quits, so the WAV header is
@@ -73,7 +74,8 @@ final class RecorderViewModel {
         let folder = settings.validatedFolderPath()
         do {
             let source = try resolveSource(settings.sourceBundleID)
-            let url = RecordingFileName.uniqueURL(in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
+            let url = RecordingFileName.uniqueURL(
+                in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
             try recorder.start(source: source, fileURL: url)
             fileURL = url
             // For a single-app recording, remember which app so we notice if it quits.

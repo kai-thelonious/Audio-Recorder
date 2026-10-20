@@ -2,6 +2,7 @@ import AVFoundation
 import CoreAudio
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 /// Runs `block` the way Core Audio does: on the writer's queue, off the main thread.
@@ -20,7 +21,8 @@ private nonisolated func deliver(_ pcm: AVAudioPCMBuffer, to block: AudioDeviceI
 }
 
 struct AudioWriterTests {
-    private let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
+    private let format = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
 
     private func buffer(frames: Int, amplitude: Float) -> AVAudioPCMBuffer {
         let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames))!
@@ -32,7 +34,8 @@ struct AudioWriterTests {
     }
 
     @Test func buffersDeliveredByTheIOBlockEndUpInTheFile() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("out.wav")
         let writer = try AudioWriter(url: url, format: format)
         let block = writer.ioBlock()
@@ -42,7 +45,8 @@ struct AudioWriterTests {
     }
 
     @Test func closeFinalisesTheFileHeader() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("out.wav")
         let writer = try AudioWriter(url: url, format: format)
         deliver(buffer(frames: 48_000, amplitude: 0.1), to: writer.ioBlock(), on: writer.queue)
@@ -54,7 +58,8 @@ struct AudioWriterTests {
     }
 
     @Test func peakReportsTheLoudestSampleThenResets() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let writer = try AudioWriter(url: temp.url.appendingPathComponent("out.wav"), format: format)
         let block = writer.ioBlock()
         #expect(writer.takePeak() == 0)
@@ -67,7 +72,8 @@ struct AudioWriterTests {
     }
 
     @Test func theFileIsReadableWhileStillRecording() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("live.wav")
         // Refresh the header after every buffer so the test doesn't need a second of audio.
         let writer = try AudioWriter(url: url, format: format, headerUpdateInterval: 0.01)
@@ -82,7 +88,8 @@ struct AudioWriterTests {
     }
 
     @Test func writingAfterCloseDoesNothing() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("out.wav")
         let writer = try AudioWriter(url: url, format: format)
         let block = writer.ioBlock()
@@ -94,7 +101,8 @@ struct AudioWriterTests {
     }
 
     @Test func nothingHasFailedAfterNormalWriting() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let writer = try AudioWriter(url: temp.url.appendingPathComponent("out.wav"), format: format)
         deliver(buffer(frames: 480, amplitude: 0.5), to: writer.ioBlock(), on: writer.queue)
         #expect(writer.takeError() == nil)
@@ -102,7 +110,8 @@ struct AudioWriterTests {
     }
 
     @Test func theMainThreadCanReadWhileTheAudioQueueWrites() async throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("out.wav")
         let writer = try AudioWriter(url: url, format: format)
         deliverRepeatedly(count: 200, frames: 480, amplitude: 0.4, to: writer)
@@ -128,7 +137,8 @@ struct AudioWriterTests {
 /// so nothing non-Sendable crosses threads.
 private nonisolated func deliverRepeatedly(count: Int, frames: Int, amplitude: Float, to writer: AudioWriter) {
     writer.queue.async {
-        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
+        let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
         let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames))!
         pcm.frameLength = AVAudioFrameCount(frames)
         for channel in 0..<2 {

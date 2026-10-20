@@ -1,16 +1,20 @@
 import AVFoundation
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 struct WAVHeaderUpdaterTests {
-    private let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
+    private let format = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: false)!
 
     private func openWriter(at url: URL) throws -> AVAudioFile {
-        try AVAudioFile(forWriting: url, settings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false
-        ], commonFormat: .pcmFormatFloat32, interleaved: false)
+        try AVAudioFile(
+            forWriting: url,
+            settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false,
+            ], commonFormat: .pcmFormatFloat32, interleaved: false)
     }
 
     private func buffer(frames: Int) -> AVAudioPCMBuffer {
@@ -30,14 +34,14 @@ struct WAVHeaderUpdaterTests {
         bytes += Array("WAVE".utf8)
         bytes += Array("fmt ".utf8)
         bytes += le32(16)
-        bytes += [1, 0, 1, 0]                       // PCM, mono
-        bytes += le32(48_000)                       // sample rate
-        bytes += le32(96_000)                       // byte rate
-        bytes += [2, 0, 16, 0]                      // block align 2, 16 bits
+        bytes += [1, 0, 1, 0]  // PCM, mono
+        bytes += le32(48_000)  // sample rate
+        bytes += le32(96_000)  // byte rate
+        bytes += [2, 0, 16, 0]  // block align 2, 16 bits
         if extraChunk {
             bytes += Array("LIST".utf8)
             bytes += le32(3)
-            bytes += [1, 2, 3, 0]                   // odd size, padded to even
+            bytes += [1, 2, 3, 0]  // odd size, padded to even
         }
         bytes += Array("data".utf8)
         bytes += le32(0)
@@ -56,9 +60,10 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func anUnfinishedFileLooksEmptyUntilTheHeaderIsUpdated() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("open.wav")
-        let writer = try openWriter(at: url)          // never closed: like a crash
+        let writer = try openWriter(at: url)  // never closed: like a crash
         let updater = try WAVHeaderUpdater(url: url)
         defer { updater.close() }
         try writer.write(from: buffer(frames: 48_000))
@@ -69,7 +74,8 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func updatingWhileWritingDoesNotCorruptTheFinalFile() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("grow.wav")
         var writer: AVAudioFile? = try openWriter(at: url)
         let updater = try WAVHeaderUpdater(url: url)
@@ -77,13 +83,14 @@ struct WAVHeaderUpdaterTests {
             try writer?.write(from: buffer(frames: 9_600))
             try updater.update()
         }
-        writer = nil                                   // closes the file
+        writer = nil  // closes the file
         updater.close()
         #expect(try frameCount(of: url) == 48_000)
     }
 
     @Test func sizesMatchTheFileLength() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("hand.wav")
         try handBuiltWAV(at: url, audioBytes: 1_000)
         let updater = try WAVHeaderUpdater(url: url)
@@ -96,9 +103,10 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func onlyWholeFramesAreCounted() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("hand.wav")
-        try handBuiltWAV(at: url, audioBytes: 1_001)   // mono 16-bit: 2 bytes per frame
+        try handBuiltWAV(at: url, audioBytes: 1_001)  // mono 16-bit: 2 bytes per frame
         let updater = try WAVHeaderUpdater(url: url)
         try updater.update()
         updater.close()
@@ -106,7 +114,8 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func chunksBeforeTheDataChunkAreSkipped() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("hand.wav")
         try handBuiltWAV(at: url, audioBytes: 400, extraChunk: true)
         let updater = try WAVHeaderUpdater(url: url)
@@ -116,7 +125,8 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func repeatedUpdatesFollowTheGrowingFile() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("hand.wav")
         try handBuiltWAV(at: url, audioBytes: 100)
         let updater = try WAVHeaderUpdater(url: url)
@@ -132,14 +142,16 @@ struct WAVHeaderUpdaterTests {
     }
 
     @Test func aFileThatIsNotWAVIsRejected() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("not.wav")
         try Data("this is not a wav file at all".utf8).write(to: url)
         #expect(throws: WAVHeaderUpdater.UpdateError.notAWAVFile) { try WAVHeaderUpdater(url: url) }
     }
 
     @Test func aWAVWithoutADataChunkIsRejected() throws {
-        let temp = try TempFolder(); defer { temp.remove() }
+        let temp = try TempFolder()
+        defer { temp.remove() }
         let url = temp.url.appendingPathComponent("nodata.wav")
         let bytes = Array("RIFF".utf8) + [4, 0, 0, 0] + Array("WAVE".utf8)
         try Data(bytes).write(to: url)

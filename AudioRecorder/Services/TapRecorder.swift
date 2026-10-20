@@ -1,5 +1,5 @@
-import CoreAudio
 import AVFoundation
+import CoreAudio
 
 // Requires macOS 14.2+ and an Info.plist key:
 //   NSAudioCaptureUsageDescription  ("Privacy - Audio Capture Usage Description")
@@ -53,7 +53,7 @@ final class TapRecorder: AudioRecording {
         }
         tapDesc.uuid = UUID()
         tapDesc.name = "SystemAudioTapRecorder"
-        tapDesc.muteBehavior = .unmuted   // .muted silences the speakers while tapping
+        tapDesc.muteBehavior = .unmuted  // .muted silences the speakers while tapping
         tapDesc.isPrivate = true
 
         // 2. Create the tap (this is what triggers the permission prompt)
@@ -76,7 +76,7 @@ final class TapRecorder: AudioRecording {
             kAudioAggregateDeviceTapAutoStartKey: true,
             kAudioAggregateDeviceTapListKey: [
                 [kAudioSubTapUIDKey: tapDesc.uuid.uuidString]
-            ]
+            ],
         ]
         status = AudioHardwareCreateAggregateDevice(aggregateDescription as CFDictionary, &aggregateID)
         guard status == noErr else { throw TapError.osStatus("Create aggregate device", status) }

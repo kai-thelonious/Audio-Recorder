@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+
 @testable import AudioRecorder
 
 /// A recorder that never touches Core Audio.
@@ -19,7 +20,10 @@ final class FakeRecorder: AudioRecording {
 
     func stop() { stopCount += 1 }
     func takePeak() -> Float { peak }
-    func takeError() -> Error? { defer { pendingError = nil }; return pendingError }
+    func takeError() -> Error? {
+        defer { pendingError = nil }
+        return pendingError
+    }
 }
 
 /// A scratch folder that is deleted when the test ends.
@@ -40,7 +44,9 @@ func makeTestDefaults() -> UserDefaults {
 }
 
 /// Writes a 16-bit stereo WAV whose samples ramp from 0 up to `amplitude`.
-func writeTestWAV(in folder: URL, name: String = "test.wav", frames: Int, sampleRate: Double = 48_000, amplitude: Float = 0.5) throws -> URL {
+func writeTestWAV(
+    in folder: URL, name: String = "test.wav", frames: Int, sampleRate: Double = 48_000, amplitude: Float = 0.5
+) throws -> URL {
     let url = folder.appendingPathComponent(name)
     let settings: [String: Any] = [
         AVFormatIDKey: kAudioFormatLinearPCM,
@@ -48,7 +54,7 @@ func writeTestWAV(in folder: URL, name: String = "test.wav", frames: Int, sample
         AVNumberOfChannelsKey: 2,
         AVLinearPCMBitDepthKey: 16,
         AVLinearPCMIsFloatKey: false,
-        AVLinearPCMIsBigEndianKey: false
+        AVLinearPCMIsBigEndianKey: false,
     ]
     var file: AVAudioFile? = try AVAudioFile(
         forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
@@ -61,7 +67,7 @@ func writeTestWAV(in folder: URL, name: String = "test.wav", frames: Int, sample
         }
         try file?.write(from: buffer)
     }
-    file = nil   // finalise the file
+    file = nil  // finalise the file
     return url
 }
 

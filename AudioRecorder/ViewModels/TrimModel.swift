@@ -7,9 +7,9 @@ final class TrimModel {
     let sourceURL: URL
     var data: WaveformData?
     var errorText: String?
-    var start: Double = 0        // seconds
-    var end: Double = 0          // seconds
-    var playhead: Double = 0     // seconds
+    var start: Double = 0  // seconds
+    var end: Double = 0  // seconds
+    var playhead: Double = 0  // seconds
     var isPlaying = false
     var isSaving = false
     var savedURL: URL?

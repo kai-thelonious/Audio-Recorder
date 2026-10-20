@@ -1,6 +1,6 @@
-import SwiftUI
 import AVFoundation
 import AppKit
+import SwiftUI
 
 private func formatTime(_ t: Double) -> String {
     let t = max(0, t)
@@ -142,8 +142,9 @@ private struct WaveformTrimView: View {
                     let step = size.width / CGFloat(peaks.count)
                     for (i, p) in peaks.enumerated() {
                         let barH = max(2, CGFloat(p) * size.height * 0.9)
-                        let rect = CGRect(x: CGFloat(i) * step, y: (size.height - barH) / 2,
-                                          width: max(1, step - 1), height: barH)
+                        let rect = CGRect(
+                            x: CGFloat(i) * step, y: (size.height - barH) / 2,
+                            width: max(1, step - 1), height: barH)
                         context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .foreground)
                     }
                 }
@@ -176,9 +177,10 @@ private struct WaveformTrimView: View {
                     .accessibilityAdjustableAction { direction in
                         model.nudgeStart(by: direction == .increment ? 0.1 : -0.1)
                     }
-                    .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
-                        model.setStart(Double(value.location.x / w) * duration)
-                    })
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
+                            model.setStart(Double(value.location.x / w) * duration)
+                        })
                 handle(at: endX - handleWidth, height: h)
                     .accessibilityElement()
                     .accessibilityLabel("Trim end")
@@ -186,9 +188,10 @@ private struct WaveformTrimView: View {
                     .accessibilityAdjustableAction { direction in
                         model.nudgeEnd(by: direction == .increment ? 0.1 : -0.1)
                     }
-                    .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
-                        model.setEnd(Double(value.location.x / w) * duration)
-                    })
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
+                            model.setEnd(Double(value.location.x / w) * duration)
+                        })
             }
             .coordinateSpace(name: "wave")
             .clipShape(RoundedRectangle(cornerRadius: 8))

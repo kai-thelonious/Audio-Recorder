@@ -1,11 +1,13 @@
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 struct TrimModelTests {
     private func makeModel(duration: Double = 10) -> TrimModel {
         let model = TrimModel(sourceURL: URL(fileURLWithPath: "/tmp/Take.wav"))
-        model.data = WaveformData(peaks: [0.5], duration: duration, sampleRate: 48_000, frameCount: Int64(duration * 48_000))
+        model.data = WaveformData(
+            peaks: [0.5], duration: duration, sampleRate: 48_000, frameCount: Int64(duration * 48_000))
         model.start = 0
         model.end = duration
         return model
@@ -59,7 +61,7 @@ struct TrimModelTests {
         model.nudgeEnd(by: -0.1)
         #expect(abs(model.end - 7.9) < 0.0001)
         model.nudgeEnd(by: 5)
-        #expect(model.end == 10)   // still capped at the duration
+        #expect(model.end == 10)  // still capped at the duration
     }
 
     @Test func nudgesRespectTheMinimumSelection() {

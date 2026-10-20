@@ -14,7 +14,10 @@ nonisolated final class FailureBox: @unchecked Sendable {
 
     func record(_ newError: Error) {
         lock.lock()
-        if !failed { error = newError; failed = true }
+        if !failed {
+            error = newError
+            failed = true
+        }
         lock.unlock()
     }
 

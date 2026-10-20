@@ -2,7 +2,7 @@ import AVFoundation
 
 /// Downsampled peak data for drawing a waveform, plus the file facts the trim editor needs.
 struct WaveformData: Sendable {
-    var peaks: [Float]                  // 0...1, one value per bucket
+    var peaks: [Float]  // 0...1, one value per bucket
     var duration: TimeInterval
     var sampleRate: Double
     var frameCount: AVAudioFramePosition
@@ -63,7 +63,9 @@ enum WaveformLoader {
 
     /// Writes frames [start, end) to "<name> (trimmed).wav" next to the original, as 16-bit PCM WAV.
     /// Never overwrites: picks "(trimmed 2)", "(trimmed 3)"… if the name is taken.
-    nonisolated static func exportTrim(of url: URL, startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition) throws -> URL {
+    nonisolated static func exportTrim(of url: URL, startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition)
+        throws -> URL
+    {
         guard endFrame > startFrame else { throw TrimError.emptySelection }
         let source = try AVAudioFile(forReading: url)
         let format = source.processingFormat
@@ -83,7 +85,7 @@ enum WaveformLoader {
             AVNumberOfChannelsKey: format.channelCount,
             AVLinearPCMBitDepthKey: 16,
             AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false
+            AVLinearPCMIsBigEndianKey: false,
         ]
         var output: AVAudioFile? = try AVAudioFile(
             forWriting: destination,
@@ -105,7 +107,7 @@ enum WaveformLoader {
             try output?.write(from: buffer)
             remaining -= Int64(buffer.frameLength)
         }
-        output = nil   // finalize the file
+        output = nil  // finalize the file
         return destination
     }
 }
