@@ -17,13 +17,14 @@ struct RecorderViewModelTests {
         resolve: @escaping @MainActor (String) throws -> ResolvedSource = { _ in
             ResolvedSource(processObjects: nil, appName: nil)
         },
-        now: @escaping () -> Date = { Date(timeIntervalSince1970: 1_000) }
+        now: @escaping () -> Date = { Date(timeIntervalSince1970: 1_000) },
+        isAppRunning: @escaping (String) -> Bool = { _ in true }
     ) throws -> (model: RecorderViewModel, recorder: FakeRecorder, settings: AppSettings, folder: TempFolder) {
         let folder = try TempFolder()
         let settings = AppSettings(defaults: makeTestDefaults())
         settings.folderPath = folder.url.path
         let recorder = FakeRecorder()
-        let model = RecorderViewModel(settings: settings, recorder: recorder, resolveSource: resolve, now: now)
+        let model = RecorderViewModel(settings: settings, recorder: recorder, resolveSource: resolve, now: now, isAppRunning: isAppRunning)
         return (model, recorder, settings, folder)
     }
 
@@ -175,6 +176,90 @@ struct RecorderViewModelTests {
         center.post(name: NSApplication.willTerminateNotification, object: nil)
         #expect(recorder.stopCount == 0)
         #expect(model.status == "Idle")
+    }
+
+    // MARK: The recorded app quits
+
+    private let spotifySource = ResolvedSource(processObjects: [42], appName: "Spotify")
+
+    @Test func recordingStopsWhenTheRecordedAppQuits() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        var running = true
+        let source = spotifySource
+        let t = try makeModel(resolve: { _ in source }, now: { clock }, isAppRunning: { _ in running })
+        defer { t.folder.remove() }
+        t.settings.sourceBundleID = "com.spotify.client"
+        t.model.start()
+        let url = try #require(t.recorder.startedWith?.fileURL)
+        running = false
+        clock = clock.addingTimeInterval(1.1)
+        t.model.tick()
+        #expect(!t.model.isRecording)
+        #expect(t.recorder.stopCount == 1)
+        #expect(t.model.lastFileURL == url)
+        #expect(t.model.status == "Recording stopped: Spotify quit. Saved: \(url.lastPathComponent)")
+    }
+
+    @Test func recordingContinuesWhileTheAppIsRunning() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let source = spotifySource
+        let t = try makeModel(resolve: { _ in source }, now: { clock }, isAppRunning: { _ in true })
+        defer { t.folder.remove() }
+        t.settings.sourceBundleID = "com.spotify.client"
+        t.model.start()
+        clock = clock.addingTimeInterval(30)
+        t.model.tick()
+        #expect(t.model.isRecording)
+        t.model.stop()
+    }
+
+    @Test func theAppIsOnlyCheckedOncePerInterval() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        var checks = 0
+        let source = spotifySource
+        let t = try makeModel(resolve: { _ in source }, now: { clock }, isAppRunning: { _ in checks += 1; return true })
+        defer { t.folder.remove() }
+        t.settings.sourceBundleID = "com.spotify.client"
+        t.model.start()
+        clock = clock.addingTimeInterval(0.4)
+        t.model.tick()
+        #expect(checks == 0)
+        clock = clock.addingTimeInterval(0.7)
+        t.model.tick()
+        #expect(checks == 1)
+        clock = clock.addingTimeInterval(0.5)
+        t.model.tick()
+        #expect(checks == 1)
+        t.model.stop()
+    }
+
+    @Test func allSystemAudioNeverChecksForAnApp() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }, isAppRunning: { _ in Issue.record("should not be asked"); return false })
+        defer { t.folder.remove() }
+        t.model.start()
+        clock = clock.addingTimeInterval(10)
+        t.model.tick()
+        #expect(t.model.isRecording)
+        t.model.stop()
+    }
+
+    @Test func aFreshRecordingForgetsThePreviousApp() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let spotify = spotifySource
+        let everything = ResolvedSource(processObjects: nil, appName: nil)
+        let t = try makeModel(
+            resolve: { id in id.isEmpty ? everything : spotify }, now: { clock }, isAppRunning: { _ in false })
+        defer { t.folder.remove() }
+        t.settings.sourceBundleID = "com.spotify.client"
+        t.model.start()
+        t.model.stop()
+        t.settings.sourceBundleID = ""                                 // now recording all system audio
+        t.model.start()
+        clock = clock.addingTimeInterval(5)
+        t.model.tick()
+        #expect(t.model.isRecording)
+        t.model.stop()
     }
 
     // MARK: Silence hint

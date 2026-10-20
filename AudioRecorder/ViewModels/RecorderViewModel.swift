@@ -19,11 +19,16 @@ final class RecorderViewModel {
     static let silenceThreshold: Float = 0.0001          // about -80 dB
     static let silenceWarningDelay: TimeInterval = 3     // seconds
     static let silenceMessage = "No audio detected. Is something playing? Check the Privacy settings."
+    /// How often (seconds) a single-app recording checks that the app is still running.
+    static let appCheckInterval: TimeInterval = 1
 
     @ObservationIgnored private let recorder: AudioRecording
     @ObservationIgnored private let resolveSource: @MainActor (String) throws -> ResolvedSource
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let isAppRunning: (String) -> Bool
+    @ObservationIgnored private var recordedApp: (bundleID: String, name: String)?
+    @ObservationIgnored private var lastAppCheck = Date()
     @ObservationIgnored private let notificationCenter: NotificationCenter
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var fileURL: URL?
@@ -36,13 +41,15 @@ final class RecorderViewModel {
         recorder: AudioRecording = TapRecorder(),
         resolveSource: (@MainActor (String) throws -> ResolvedSource)? = nil,
         now: @escaping () -> Date = Date.init,
-        notificationCenter: NotificationCenter = .default
+        notificationCenter: NotificationCenter = .default,
+        isAppRunning: ((String) -> Bool)? = nil
     ) {
         self.recorder = recorder
         self.resolveSource = resolveSource ?? { try AudioSources.resolve(bundleID: $0) }
         self.settings = settings
         self.now = now
         self.notificationCenter = notificationCenter
+        self.isAppRunning = isAppRunning ?? { !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty }
     }
 
     /// Finishes a recording in progress when the app quits, so the WAV header is
@@ -69,6 +76,8 @@ final class RecorderViewModel {
             let url = RecordingFileName.uniqueURL(in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
             try recorder.start(source: source, fileURL: url)
             fileURL = url
+            // For a single-app recording, remember which app so we notice if it quits.
+            recordedApp = source.appName.map { (settings.sourceBundleID, $0) }
             startMetering()
             isRecording = true
             status = "Recording \(source.appName ?? "all system audio")…"
@@ -79,18 +88,19 @@ final class RecorderViewModel {
     }
 
     func stop() {
-        finish(failure: nil)
+        finish(reason: nil)
     }
 
-    /// Stops recording; if `failure` is set, says why recording ended early.
-    private func finish(failure: Error?) {
+    /// Stops recording; if `reason` is set, says why recording ended early.
+    private func finish(reason: String?) {
         guard isRecording else { return }
         stopMetering()
         recorder.stop()
         lastFileURL = fileURL
         isRecording = false
         let saved = "Saved: \(fileURL?.lastPathComponent ?? "")"
-        status = failure.map { "Recording stopped: \($0.localizedDescription) \(saved)" } ?? saved
+        recordedApp = nil
+        status = reason.map { "Recording stopped: \($0) \(saved)" } ?? saved
     }
 
     /// Called by the trim editor when it has written a trimmed copy.
@@ -106,6 +116,7 @@ final class RecorderViewModel {
         heardAudio = false
         silenceHint = nil
         startDate = now()
+        lastAppCheck = startDate
         meterTimer?.invalidate()
         meterTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -121,8 +132,17 @@ final class RecorderViewModel {
 
     func tick() {
         if let failure = recorder.takeError() {
-            finish(failure: failure)
+            finish(reason: failure.localizedDescription)
             return
+        }
+        // A single-app recording can't go on once that app has quit; the tap would
+        // just keep delivering silence.
+        if let app = recordedApp, now().timeIntervalSince(lastAppCheck) >= Self.appCheckInterval {
+            lastAppCheck = now()
+            if !isAppRunning(app.bundleID) {
+                finish(reason: "\(app.name) quit.")
+                return
+            }
         }
         let peak = recorder.takePeak()
         let level = Self.meterLevel(peak: peak, previous: levels.last ?? 0)

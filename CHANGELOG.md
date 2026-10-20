@@ -26,6 +26,7 @@ release will be 0.1.0.
 - Recordings were **silent** because the audio-capture usage description was missing from the app's Info.plist.
 - Recordings played back **sped up and pitched up** when the output device ran at a lower sample rate (for example Bluetooth at 16 kHz).
 - **Quitting during a recording** left a WAV file that reported zero length; the recording is now finished on quit. ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
+- Recording **a single app** now stops, and says so ("Recording stopped: Spotify quit."), when that app quits; before, the recording carried on with nothing but silence. The file is saved as usual.
 - A full disk used to stop saving silently while the app still showed "Recording…"; it now stops and says why, keeping what was recorded. ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
 - Starting two recordings in the same second could overwrite one with the other; names now get ` 2`, ` 3`, … ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
 - A failed start no longer leaves an empty file behind. ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
