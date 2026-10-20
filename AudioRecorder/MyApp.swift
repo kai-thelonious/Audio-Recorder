@@ -74,9 +74,17 @@ final class SystemAudioTapRecorder: ObservableObject {
 
     func start(in folder: URL) {
         do {
-            // 1. Describe the tap: all system audio, excluding nothing.
+            // 1. Describe the tap: one app's processes if a source is chosen,
+            //    otherwise all system audio (see AudioSources.swift).
             //    (Pass your own process's AudioObjectID in the array to exclude it.)
-            let tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
+            let source = try AudioSources.resolve(
+                bundleID: UserDefaults.standard.string(forKey: AudioSources.defaultsKey) ?? "")
+            let tapDesc: CATapDescription
+            if let objects = source.processObjects {
+                tapDesc = CATapDescription(stereoMixdownOfProcesses: objects)
+            } else {
+                tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
+            }
             tapDesc.uuid = UUID()
             tapDesc.name = "SystemAudioTapRecorder"
             tapDesc.muteBehavior = .unmuted   // .muted silences the speakers while tapping
@@ -110,7 +118,8 @@ final class SystemAudioTapRecorder: ObservableObject {
             // 5. Open the output file (16-bit PCM WAV; AVAudioFile converts on write)
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd HH.mm.ss"
-            let url = folder.appendingPathComponent("Recording \(df.string(from: Date())).wav")
+            let appPart = source.appName.map { " " + $0.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") } ?? ""
+            let url = folder.appendingPathComponent("Recording\(appPart) \(df.string(from: Date())).wav")
             let settings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatLinearPCM,
                 AVSampleRateKey: format.sampleRate,
@@ -143,7 +152,7 @@ final class SystemAudioTapRecorder: ObservableObject {
 
             startDate = Date()
             DispatchQueue.main.async { self.beginMetering() }
-            set(recording: true, status: "Recording…")
+            set(recording: true, status: "Recording \(source.appName ?? "all system audio")…")
         } catch {
             teardown()
             set(recording: false, status: "Error: \(error.localizedDescription)")
@@ -390,6 +399,10 @@ struct ContentView: View {
             .keyboardShortcut(.defaultAction)
             .help(recorder.isRecording ? "Stop recording" : "Start recording")
 
+            SourcePicker(isRecording: recorder.isRecording)
+                .labelsHidden()
+                .frame(width: 220)
+
             HStack(spacing: 8) {
                 Button {
                     if let path = chooseFolderPath() { folderPath = path }
@@ -455,6 +468,7 @@ struct MenuBarContent: View {
             }
         }
         Text(recorder.status)
+        SourceMenuSection(isRecording: recorder.isRecording)
 
         Divider()
 
