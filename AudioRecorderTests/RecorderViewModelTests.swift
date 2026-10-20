@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import AudioRecorder
@@ -122,6 +123,58 @@ struct RecorderViewModelTests {
         #expect(started.fileURL.deletingLastPathComponent().path == AppSettings.defaultFolderPath)
         #expect(t.settings.folderPath == AppSettings.defaultFolderPath)
         t.model.stop()
+    }
+
+    @Test func twoRecordingsInTheSameSecondDoNotShareAFile() throws {
+        let fixed = fixedDate
+        let t = try makeModel(now: { fixed }); defer { t.folder.remove() }
+        t.model.start()
+        let first = try #require(t.recorder.startedWith?.fileURL)
+        try Data().write(to: first)   // the first recording's file now exists
+        t.model.stop()
+        t.model.start()
+        let second = try #require(t.recorder.startedWith?.fileURL)
+        #expect(second != first)
+        #expect(second.lastPathComponent == "Recording 2026-10-20 21.40.05 2.wav")
+        t.model.stop()
+    }
+
+    @Test func aWriteFailureStopsTheRecordingAndKeepsTheFile() throws {
+        let t = try makeModel(); defer { t.folder.remove() }
+        t.model.start()
+        let url = try #require(t.recorder.startedWith?.fileURL)
+        t.recorder.pendingError = Failure()
+        t.model.tick()
+        #expect(!t.model.isRecording)
+        #expect(t.recorder.stopCount == 1)
+        #expect(t.model.lastFileURL == url)
+        #expect(t.model.status == "Recording stopped: boom Saved: \(url.lastPathComponent)")
+    }
+
+    @Test func quittingTheAppFinishesTheRecording() throws {
+        let center = NotificationCenter()
+        let folder = try TempFolder(); defer { folder.remove() }
+        let settings = AppSettings(defaults: makeTestDefaults())
+        settings.folderPath = folder.url.path
+        let recorder = FakeRecorder()
+        let model = RecorderViewModel(settings: settings, recorder: recorder, notificationCenter: center)
+        model.finishRecordingOnQuit()
+        model.start()
+        center.post(name: NSApplication.willTerminateNotification, object: nil)
+        #expect(!model.isRecording)
+        #expect(recorder.stopCount == 1)
+    }
+
+    @Test func quittingWhileIdleDoesNothing() throws {
+        let center = NotificationCenter()
+        let folder = try TempFolder(); defer { folder.remove() }
+        let settings = AppSettings(defaults: makeTestDefaults())
+        let recorder = FakeRecorder()
+        let model = RecorderViewModel(settings: settings, recorder: recorder, notificationCenter: center)
+        model.finishRecordingOnQuit()
+        center.post(name: NSApplication.willTerminateNotification, object: nil)
+        #expect(recorder.stopCount == 0)
+        #expect(model.status == "Idle")
     }
 
     @Test func savingATrimUpdatesTheLastFileAndStatus() throws {

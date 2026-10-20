@@ -11,7 +11,9 @@ struct AudioRecorderApp: App {
     init() {
         let settings = AppSettings()
         _settings = State(initialValue: settings)
-        _recorder = State(initialValue: RecorderViewModel(settings: settings))
+        let recorder = RecorderViewModel(settings: settings)
+        recorder.finishRecordingOnQuit()
+        _recorder = State(initialValue: recorder)
         settings.mode.applyActivationPolicy()
     }
 

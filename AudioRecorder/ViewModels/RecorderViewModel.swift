@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -15,6 +16,8 @@ final class RecorderViewModel {
     @ObservationIgnored private let resolveSource: @MainActor (String) throws -> ResolvedSource
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let notificationCenter: NotificationCenter
+    @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var fileURL: URL?
     @ObservationIgnored private var startDate = Date()
     @ObservationIgnored private var meterTimer: Timer?
@@ -23,12 +26,24 @@ final class RecorderViewModel {
         settings: AppSettings,
         recorder: AudioRecording = TapRecorder(),
         resolveSource: (@MainActor (String) throws -> ResolvedSource)? = nil,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        notificationCenter: NotificationCenter = .default
     ) {
         self.recorder = recorder
         self.resolveSource = resolveSource ?? { try AudioSources.resolve(bundleID: $0) }
         self.settings = settings
         self.now = now
+        self.notificationCenter = notificationCenter
+    }
+
+    /// Finishes a recording in progress when the app quits, so the WAV header is
+    /// written. Without this a quit mid-recording leaves a file that reports 0 seconds.
+    func finishRecordingOnQuit() {
+        terminationObserver = notificationCenter.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stop() }
+        }
     }
 
     // MARK: Actions
@@ -42,7 +57,7 @@ final class RecorderViewModel {
         let folder = settings.validatedFolderPath()
         do {
             let source = try resolveSource(settings.sourceBundleID)
-            let url = RecordingFileName.url(in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
+            let url = RecordingFileName.uniqueURL(in: URL(fileURLWithPath: folder), appName: source.appName, date: now())
             try recorder.start(source: source, fileURL: url)
             fileURL = url
             startMetering()
@@ -55,12 +70,18 @@ final class RecorderViewModel {
     }
 
     func stop() {
+        finish(failure: nil)
+    }
+
+    /// Stops recording; if `failure` is set, says why recording ended early.
+    private func finish(failure: Error?) {
         guard isRecording else { return }
         stopMetering()
         recorder.stop()
         lastFileURL = fileURL
         isRecording = false
-        status = "Saved: \(fileURL?.lastPathComponent ?? "")"
+        let saved = "Saved: \(fileURL?.lastPathComponent ?? "")"
+        status = failure.map { "Recording stopped: \($0.localizedDescription) \(saved)" } ?? saved
     }
 
     /// Called by the trim editor when it has written a trimmed copy.
@@ -87,6 +108,10 @@ final class RecorderViewModel {
     }
 
     func tick() {
+        if let failure = recorder.takeError() {
+            finish(failure: failure)
+            return
+        }
         let level = Self.meterLevel(peak: recorder.takePeak(), previous: levels.last ?? 0)
         levels.removeFirst()
         levels.append(level)
