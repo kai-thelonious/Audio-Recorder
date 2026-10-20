@@ -4,7 +4,8 @@ import SwiftUI
 struct WaveBars: View {
     static let barCount = 9
     private static let profile: [CGFloat] = [140, 260, 420, 560, 380, 500, 300, 200, 120].map { $0 / 560 }
-    static let coral = Color(red: 0.949, green: 0.420, blue: 0.290)
+    /// White in dark mode, dark in light mode, so the bars stay visible on the window material.
+    static let barColor = Color.primary
 
     /// nil shows the logo shape.
     var levels: [Float]?
@@ -14,7 +15,7 @@ struct WaveBars: View {
         HStack(spacing: height * 0.085) {
             ForEach(0..<Self.barCount, id: \.self) { i in
                 Capsule()
-                    .fill(Self.coral)
+                    .fill(Self.barColor)
                     .frame(width: height * 0.1, height: barHeight(i))
             }
         }
