@@ -174,6 +174,9 @@ enum AppMode: String, CaseIterable, Identifiable {
 enum Settings {
     static let modeKey = "appMode"
     static let folderKey = "saveFolderPath"
+    /// True until the window SwiftUI opens at launch has appeared. Lets us close
+    /// that one in menu bar mode without closing windows the user opens later.
+    static var launchWindowPending = true
     static let defaultFolderPath = FileManager.default
         .urls(for: .musicDirectory, in: .userDomainMask).first!.path
 
@@ -258,7 +261,10 @@ struct ContentView: View {
         .padding(24)
         .frame(width: 360)
         .onAppear {
-            // Menu bar only: the window group opens a window at launch; close it.
+            // Menu bar only: the scene opens a window at launch; close just that one.
+            // Later appearances (e.g. "Show Window") must stay open.
+            guard Settings.launchWindowPending else { return }
+            Settings.launchWindowPending = false
             if mode == .menuBarOnly { dismissWindow(id: "main") }
         }
     }
