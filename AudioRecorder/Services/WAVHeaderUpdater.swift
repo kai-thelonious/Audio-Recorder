@@ -23,7 +23,7 @@ nonisolated final class WAVHeaderUpdater {
         let handle = try FileHandle(forUpdating: url)
         do {
             guard let riff = try Self.read(handle, at: 0, count: 12), riff.count == 12,
-                  riff.prefix(4) == Data("RIFF".utf8), riff.suffix(4) == Data("WAVE".utf8)
+                riff.prefix(4) == Data("RIFF".utf8), riff.suffix(4) == Data("WAVE".utf8)
             else { throw UpdateError.notAWAVFile }
 
             var offset: UInt64 = 12

@@ -22,7 +22,7 @@ struct WaveBars: View {
         }
         .frame(height: height)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: levels)
-        .accessibilityHidden(true)   // decorative; the timer and status carry the information
+        .accessibilityHidden(true)  // decorative; the timer and status carry the information
     }
 
     private func barHeight(_ i: Int) -> CGFloat {

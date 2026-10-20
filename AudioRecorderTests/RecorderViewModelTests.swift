@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 struct RecorderViewModelTests {
@@ -9,8 +10,9 @@ struct RecorderViewModelTests {
     }
 
     private let allAudio = ResolvedSource(processObjects: nil, appName: nil)
-    private let fixedDate = Calendar.current.date(from: DateComponents(
-        year: 2026, month: 10, day: 20, hour: 21, minute: 40, second: 5))!
+    private let fixedDate = Calendar.current.date(
+        from: DateComponents(
+            year: 2026, month: 10, day: 20, hour: 21, minute: 40, second: 5))!
 
     /// A view model wired to a fake recorder and a scratch save folder.
     private func makeModel(
@@ -24,12 +26,14 @@ struct RecorderViewModelTests {
         let settings = AppSettings(defaults: makeTestDefaults())
         settings.folderPath = folder.url.path
         let recorder = FakeRecorder()
-        let model = RecorderViewModel(settings: settings, recorder: recorder, resolveSource: resolve, now: now, isAppRunning: isAppRunning)
+        let model = RecorderViewModel(
+            settings: settings, recorder: recorder, resolveSource: resolve, now: now, isAppRunning: isAppRunning)
         return (model, recorder, settings, folder)
     }
 
     @Test func startsIdle() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         #expect(!t.model.isRecording)
         #expect(t.model.status == "Idle")
         #expect(t.model.lastFileURL == nil)
@@ -37,7 +41,8 @@ struct RecorderViewModelTests {
 
     @Test func startRecordsAllSystemAudioIntoTheSavedFolder() throws {
         let fixed = fixedDate
-        let t = try makeModel(now: { fixed }); defer { t.folder.remove() }
+        let t = try makeModel(now: { fixed })
+        defer { t.folder.remove() }
         t.model.start()
         #expect(t.model.isRecording)
         #expect(t.model.status == "Recording all system audio…")
@@ -52,7 +57,8 @@ struct RecorderViewModelTests {
         let t = try makeModel(resolve: { id in
             requested = id
             return ResolvedSource(processObjects: [42], appName: "Spotify")
-        }); defer { t.folder.remove() }
+        })
+        defer { t.folder.remove() }
         t.settings.sourceBundleID = "com.spotify.client"
         t.model.start()
         #expect(requested == "com.spotify.client")
@@ -64,7 +70,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func stopSavesAndRemembersTheFile() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.model.start()
         let url = try #require(t.recorder.startedWith?.fileURL)
         t.model.stop()
@@ -75,7 +82,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func toggleStartsThenStops() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.model.toggleRecording()
         #expect(t.model.isRecording)
         t.model.toggleRecording()
@@ -85,7 +93,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func sourceErrorShowsAMessageAndDoesNotStartTheRecorder() throws {
-        let t = try makeModel(resolve: { _ in throw Failure() }); defer { t.folder.remove() }
+        let t = try makeModel(resolve: { _ in throw Failure() })
+        defer { t.folder.remove() }
         t.model.start()
         #expect(!t.model.isRecording)
         #expect(t.model.status == "Error: boom")
@@ -94,7 +103,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func recorderErrorShowsAMessageAndStaysStopped() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.recorder.startError = Failure()
         t.model.start()
         #expect(!t.model.isRecording)
@@ -102,7 +112,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func startWhileRecordingIsIgnored() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.model.start()
         t.model.start()
         #expect(t.recorder.startCount == 1)
@@ -110,14 +121,16 @@ struct RecorderViewModelTests {
     }
 
     @Test func stopWhenNotRecordingDoesNothing() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.model.stop()
         #expect(t.recorder.stopCount == 0)
         #expect(t.model.status == "Idle")
     }
 
     @Test func missingSaveFolderFallsBackToMusic() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.settings.folderPath = "/no/such/folder/\(UUID().uuidString)"
         t.model.start()
         let started = try #require(t.recorder.startedWith)
@@ -128,10 +141,11 @@ struct RecorderViewModelTests {
 
     @Test func twoRecordingsInTheSameSecondDoNotShareAFile() throws {
         let fixed = fixedDate
-        let t = try makeModel(now: { fixed }); defer { t.folder.remove() }
+        let t = try makeModel(now: { fixed })
+        defer { t.folder.remove() }
         t.model.start()
         let first = try #require(t.recorder.startedWith?.fileURL)
-        try Data().write(to: first)   // the first recording's file now exists
+        try Data().write(to: first)  // the first recording's file now exists
         t.model.stop()
         t.model.start()
         let second = try #require(t.recorder.startedWith?.fileURL)
@@ -141,7 +155,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func aWriteFailureStopsTheRecordingAndKeepsTheFile() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         t.model.start()
         let url = try #require(t.recorder.startedWith?.fileURL)
         t.recorder.pendingError = Failure()
@@ -154,7 +169,8 @@ struct RecorderViewModelTests {
 
     @Test func quittingTheAppFinishesTheRecording() throws {
         let center = NotificationCenter()
-        let folder = try TempFolder(); defer { folder.remove() }
+        let folder = try TempFolder()
+        defer { folder.remove() }
         let settings = AppSettings(defaults: makeTestDefaults())
         settings.folderPath = folder.url.path
         let recorder = FakeRecorder()
@@ -168,7 +184,8 @@ struct RecorderViewModelTests {
 
     @Test func quittingWhileIdleDoesNothing() throws {
         let center = NotificationCenter()
-        let folder = try TempFolder(); defer { folder.remove() }
+        let folder = try TempFolder()
+        defer { folder.remove() }
         let settings = AppSettings(defaults: makeTestDefaults())
         let recorder = FakeRecorder()
         let model = RecorderViewModel(settings: settings, recorder: recorder, notificationCenter: center)
@@ -217,7 +234,12 @@ struct RecorderViewModelTests {
         var clock = Date(timeIntervalSince1970: 1_000)
         var checks = 0
         let source = spotifySource
-        let t = try makeModel(resolve: { _ in source }, now: { clock }, isAppRunning: { _ in checks += 1; return true })
+        let t = try makeModel(
+            resolve: { _ in source }, now: { clock },
+            isAppRunning: { _ in
+                checks += 1
+                return true
+            })
         defer { t.folder.remove() }
         t.settings.sourceBundleID = "com.spotify.client"
         t.model.start()
@@ -235,7 +257,12 @@ struct RecorderViewModelTests {
 
     @Test func allSystemAudioNeverChecksForAnApp() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }, isAppRunning: { _ in Issue.record("should not be asked"); return false })
+        let t = try makeModel(
+            now: { clock },
+            isAppRunning: { _ in
+                Issue.record("should not be asked")
+                return false
+            })
         defer { t.folder.remove() }
         t.model.start()
         clock = clock.addingTimeInterval(10)
@@ -254,7 +281,7 @@ struct RecorderViewModelTests {
         t.settings.sourceBundleID = "com.spotify.client"
         t.model.start()
         t.model.stop()
-        t.settings.sourceBundleID = ""                                 // now recording all system audio
+        t.settings.sourceBundleID = ""  // now recording all system audio
         t.model.start()
         clock = clock.addingTimeInterval(5)
         t.model.tick()
@@ -266,7 +293,8 @@ struct RecorderViewModelTests {
 
     @Test func noHintBeforeTheDelay() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         t.recorder.peak = 0
         clock = clock.addingTimeInterval(2.9)
@@ -277,7 +305,8 @@ struct RecorderViewModelTests {
 
     @Test func hintAppearsAfterThreeSecondsOfSilence() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         t.recorder.peak = 0
         clock = clock.addingTimeInterval(3.1)
@@ -288,7 +317,8 @@ struct RecorderViewModelTests {
 
     @Test func noHintOnceAudioHasBeenHeard() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         t.recorder.peak = 0.2
         clock = clock.addingTimeInterval(1)
@@ -303,7 +333,8 @@ struct RecorderViewModelTests {
 
     @Test func hintDisappearsWhenSoundStarts() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         clock = clock.addingTimeInterval(4)
         t.model.tick()
@@ -316,7 +347,8 @@ struct RecorderViewModelTests {
 
     @Test func hintIsClearedWhenRecordingStopsAndStartsFresh() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         clock = clock.addingTimeInterval(4)
         t.model.tick()
@@ -330,9 +362,10 @@ struct RecorderViewModelTests {
 
     @Test func veryQuietSoundCountsAsAudio() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
-        t.recorder.peak = 0.001     // -60 dB: quiet, but not silence
+        t.recorder.peak = 0.001  // -60 dB: quiet, but not silence
         clock = clock.addingTimeInterval(5)
         t.model.tick()
         #expect(t.model.silenceHint == nil)
@@ -340,7 +373,8 @@ struct RecorderViewModelTests {
     }
 
     @Test func savingATrimUpdatesTheLastFileAndStatus() throws {
-        let t = try makeModel(); defer { t.folder.remove() }
+        let t = try makeModel()
+        defer { t.folder.remove() }
         let trimmed = t.folder.url.appendingPathComponent("Recording (trimmed).wav")
         t.model.didSaveTrim(trimmed)
         #expect(t.model.lastFileURL == trimmed)
@@ -349,7 +383,8 @@ struct RecorderViewModelTests {
 
     @Test func tickFeedsTheLevelMeterAndTimer() throws {
         var clock = Date(timeIntervalSince1970: 1_000)
-        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        let t = try makeModel(now: { clock })
+        defer { t.folder.remove() }
         t.model.start()
         t.recorder.peak = 1
         clock = clock.addingTimeInterval(2.5)

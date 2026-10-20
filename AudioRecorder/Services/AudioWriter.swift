@@ -39,7 +39,7 @@ nonisolated final class AudioWriter: @unchecked Sendable {
             AVNumberOfChannelsKey: format.channelCount,
             AVLinearPCMBitDepthKey: 16,
             AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false
+            AVLinearPCMIsBigEndianKey: false,
         ]
         self.format = format
         framesPerHeaderUpdate = AVAudioFrameCount(max(1, format.sampleRate * headerUpdateInterval))
@@ -84,7 +84,7 @@ nonisolated final class AudioWriter: @unchecked Sendable {
     /// Waits for any buffer being written, then releases the file so it is finalised.
     func close() {
         queue.sync {
-            file = nil                 // AVAudioFile writes the exact final sizes as it closes
+            file = nil  // AVAudioFile writes the exact final sizes as it closes
             headerUpdater?.close()
             headerUpdater = nil
         }

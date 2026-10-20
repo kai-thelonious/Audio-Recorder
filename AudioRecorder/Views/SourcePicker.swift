@@ -1,6 +1,6 @@
-import SwiftUI
 import AppKit
 import Combine
+import SwiftUI
 
 /// Choices for the picker: "All system audio", the apps playing audio, and the
 /// saved app even if it has stopped (so the selection always has a matching tag).
@@ -24,7 +24,11 @@ private struct SourceOptions: View {
         Text("All system audio").tag("")
         ForEach(choices.apps) { app in
             if let icon = app.icon {
-                Label { Text(app.name) } icon: { Image(nsImage: icon) }.tag(app.bundleID)
+                Label {
+                    Text(app.name)
+                } icon: {
+                    Image(nsImage: icon)
+                }.tag(app.bundleID)
             } else {
                 Text(app.name).tag(app.bundleID)
             }

@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 private func formatElapsed(_ t: TimeInterval) -> String {
     let total = Int(t)

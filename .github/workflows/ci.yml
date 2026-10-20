@@ -11,6 +11,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # swift-format ships with Xcode, so there is nothing to install. The rules
+      # live in .swift-format; fix findings with
+      #   xcrun swift-format format --in-place --recursive AudioRecorder AudioRecorderTests
+      - name: swift-format lint
+        run: xcrun swift-format lint --strict --recursive AudioRecorder AudioRecorderTests
+
   test:
     # "Build and test" is the check required by the branch protection rule on
     # main, so its name must stay exactly as it is.
@@ -56,11 +69,27 @@ jobs:
             -scheme AudioRecorder \
             -destination 'platform=macOS' \
             -resultBundlePath TestResults.xcresult \
+            -enableCodeCoverage YES \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
             DEVELOPMENT_TEAM= \
             CODE_SIGNING_REQUIRED=NO \
             ${{ matrix.skip_icon && 'ASSETCATALOG_COMPILER_APPICON_NAME=' || '' }}
+
+      # Shows up on the workflow run page and in the coverage.json artifact. It is
+      # informational only: no minimum is enforced.
+      - name: Coverage summary
+        if: success()
+        run: |
+          xcrun xccov view --report --json TestResults.xcresult > coverage.json
+          python3 .github/scripts/coverage_summary.py coverage.json
+
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.json
 
       - name: Upload test results
         if: failure()

@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct ModePicker: View {
     @Environment(AppSettings.self) private var settings

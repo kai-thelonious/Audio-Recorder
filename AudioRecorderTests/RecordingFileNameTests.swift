@@ -1,11 +1,13 @@
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 struct RecordingFileNameTests {
     private let folder = URL(fileURLWithPath: "/tmp/recordings")
-    private let date = Calendar.current.date(from: DateComponents(
-        year: 2026, month: 10, day: 20, hour: 21, minute: 40, second: 5))!
+    private let date = Calendar.current.date(
+        from: DateComponents(
+            year: 2026, month: 10, day: 20, hour: 21, minute: 40, second: 5))!
 
     @Test func allSystemAudioHasNoAppName() {
         let url = RecordingFileName.url(in: folder, appName: nil, date: date)
@@ -30,7 +32,8 @@ struct RecordingFileNameTests {
 
     @Test func uniqueURLNeverReusesAnExistingName() {
         let taken: Set<String> = ["Recording 2026-10-20 21.40.05.wav", "Recording 2026-10-20 21.40.05 2.wav"]
-        let url = RecordingFileName.uniqueURL(in: folder, appName: nil, date: date, exists: { taken.contains($0.lastPathComponent) })
+        let url = RecordingFileName.uniqueURL(
+            in: folder, appName: nil, date: date, exists: { taken.contains($0.lastPathComponent) })
         #expect(url.lastPathComponent == "Recording 2026-10-20 21.40.05 3.wav")
     }
 

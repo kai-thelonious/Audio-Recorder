@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import AudioRecorder
 
 struct AppMatchingTests {
@@ -64,7 +65,9 @@ struct AppMatchingTests {
     // MARK: Process tree
 
     @Test func anUnrelatedHelperIsFoundThroughItsParent() {
-        #expect(owner("org.vendor.audio-helper", pid: 5_000, in: [chrome, spotify], parents: [5_000: 4_000, 4_000: 400]) == spotify)
+        #expect(
+            owner("org.vendor.audio-helper", pid: 5_000, in: [chrome, spotify], parents: [5_000: 4_000, 4_000: 400])
+                == spotify)
     }
 
     @Test func aBundleIDMatchIsPreferredOverTheProcessTree() {

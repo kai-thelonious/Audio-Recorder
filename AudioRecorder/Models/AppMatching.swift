@@ -28,9 +28,13 @@ enum AppMatching {
         var bestLength = 0
         for app in apps {
             if app.pid == processPID { return app }
-            let matches = id == app.bundleID || id.hasPrefix(app.bundleID + ".")
+            let matches =
+                id == app.bundleID || id.hasPrefix(app.bundleID + ".")
                 || (app.bundleID == "com.apple.Safari" && id.hasPrefix("com.apple.WebKit."))
-            if matches, app.bundleID.count > bestLength { best = app; bestLength = app.bundleID.count }
+            if matches, app.bundleID.count > bestLength {
+                best = app
+                bestLength = app.bundleID.count
+            }
         }
         if let best { return best }
 

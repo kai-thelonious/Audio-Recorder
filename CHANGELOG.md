@@ -14,6 +14,7 @@ release will be 0.1.0.
 - A redesigned window: the logo bars act as a **live level meter**, with an elapsed-time display, a round record button (Liquid Glass on macOS 26) and *Show in Finder*. The bars are white in dark mode and dark in light mode. ([#9](https://github.com/kai-thelonious/Audio-Recorder/pull/9))
 - A **"No audio detected" hint** when three seconds into a recording nothing has been heard, which also happens when audio capture permission was denied. ([#10](https://github.com/kai-thelonious/Audio-Recorder/pull/10))
 - **Accessibility**: VoiceOver labels, adjustable trim handles, an announced silence hint, and Reduce Motion support. ([#15](https://github.com/kai-thelonious/Audio-Recorder/pull/15))
+- A `swift-format` config with a **Lint** job in CI, and a **code coverage** table on each CI run.
 - An app icon, an MIT licence, a README, a unit test target, and GitHub Actions CI on macOS 26 and macOS 15. ([#6](https://github.com/kai-thelonious/Audio-Recorder/pull/6), [#7](https://github.com/kai-thelonious/Audio-Recorder/pull/7), [#11](https://github.com/kai-thelonious/Audio-Recorder/pull/11))
 
 ### Changed
