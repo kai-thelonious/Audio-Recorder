@@ -1,0 +1,11 @@
+// Copy this file to Config/Local.xcconfig (ignored by git) and edit it.
+// Pick ONE of the two options.
+
+// Option 1: sign with your Apple Developer team.
+// Find the ID in Xcode > Settings > Accounts, or at developer.apple.com > Membership.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Option 2: no Apple account needed. Signs ad hoc, which is enough to run the
+// app on your own Mac. (Delete the DEVELOPMENT_TEAM line above and uncomment these.)
+// CODE_SIGN_STYLE = Manual
+// CODE_SIGN_IDENTITY = -

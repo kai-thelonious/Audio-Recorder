@@ -14,3 +14,6 @@ DerivedData/
 # Release artifacts
 *.zip
 *.dmg
+
+# Per-developer signing settings (copy Config/Local.xcconfig.example)
+Config/Local.xcconfig

@@ -1,0 +1,10 @@
+// Build settings shared by every configuration of the project.
+//
+// Signing is configured per developer in Config/Local.xcconfig, which is
+// git-ignored. Copy Config/Local.xcconfig.example to Config/Local.xcconfig
+// and fill it in. Nothing about your Apple account belongs in the project file.
+
+CODE_SIGN_STYLE = Automatic
+
+// Optional include: no error if the file doesn't exist.
+#include? "Local.xcconfig"
