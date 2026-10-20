@@ -42,6 +42,17 @@ If you denied the permission by accident, enable AudioRecorder under
 
 The recorder creates a global `CATapDescription` tap of all system audio, wraps it in a private aggregate device with no sub-devices (so it runs on the tap's own clock and sample rate), and writes the buffers it receives to disk with `AVAudioFile`. See `AudioRecorder/MyApp.swift`.
 
+## Project structure
+
+```
+AudioRecorder/
+  App/          app entry point and scenes
+  Models/       plain data types (AppMode, Settings, AudioApp, TrimSource)
+  Services/     Core Audio recording, app/process discovery, waveform loading, folder picker
+  ViewModels/   observable state for the views (AudioSourceList, TrimModel)
+  Views/        SwiftUI views and shared styling
+```
+
 ## License
 
 [MIT](LICENSE)
