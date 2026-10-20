@@ -21,9 +21,47 @@ enum TapError: LocalizedError {
     }
 }
 
+/// Tracks the loudest sample seen since the last read. Written from the audio
+/// thread, read from the UI timer.
+nonisolated final class PeakMeter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var peak: Float = 0
+
+    func record(_ buffer: AVAudioPCMBuffer) {
+        guard let channels = buffer.floatChannelData else { return }
+        let frames = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        // Interleaved buffers keep every channel in channels[0].
+        let (planes, count) = buffer.format.isInterleaved ? (1, frames * channelCount) : (channelCount, frames)
+        var loudest: Float = 0
+        for plane in 0..<planes {
+            let samples = channels[plane]
+            for i in 0..<count { loudest = max(loudest, abs(samples[i])) }
+        }
+        lock.lock()
+        peak = max(peak, loudest)
+        lock.unlock()
+    }
+
+    func takePeak() -> Float {
+        lock.lock()
+        defer { lock.unlock() }
+        let value = peak
+        peak = 0
+        return value
+    }
+}
+
 final class SystemAudioTapRecorder: ObservableObject {
     @Published var isRecording = false
     @Published var status = "Idle"
+    @Published var levels = [Float](repeating: 0, count: WaveBars.barCount)
+    @Published var elapsed: TimeInterval = 0
+    @Published var lastFileURL: URL?
+
+    private let meter = PeakMeter()
+    private var uiTimer: Timer?
+    private var startDate = Date()
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
@@ -95,6 +133,7 @@ final class SystemAudioTapRecorder: ObservableObject {
                 guard let self, let file = self.audioFile,
                       let pcm = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inInputData)
                 else { return }
+                self.meter.record(pcm)
                 try? file.write(from: pcm)
             }
             guard status == noErr else { throw TapError.osStatus("Create IO proc", status) }
@@ -102,6 +141,8 @@ final class SystemAudioTapRecorder: ObservableObject {
             status = AudioDeviceStart(aggregateID, procID)
             guard status == noErr else { throw TapError.osStatus("Start device", status) }
 
+            startDate = Date()
+            DispatchQueue.main.async { self.beginMetering() }
             set(recording: true, status: "Recording…")
         } catch {
             teardown()
@@ -114,10 +155,14 @@ final class SystemAudioTapRecorder: ObservableObject {
     func stop() {
         let name = fileURL?.lastPathComponent ?? ""
         teardown()
+        lastFileURL = fileURL
         set(recording: false, status: "Saved: \(name)")
     }
 
     private func teardown() {
+        uiTimer?.invalidate()
+        uiTimer = nil
+        levels = [Float](repeating: 0, count: WaveBars.barCount)
         if aggregateID != kAudioObjectUnknown {
             AudioDeviceStop(aggregateID, procID)
             if let procID { AudioDeviceDestroyIOProcID(aggregateID, procID) }
@@ -132,6 +177,27 @@ final class SystemAudioTapRecorder: ObservableObject {
 
         // Serialize with the IO queue, then release the file so it gets finalized
         ioQueue.sync { audioFile = nil }
+    }
+
+    // MARK: Metering
+
+    private func beginMetering() {
+        guard isRecording || audioFile != nil else { return }
+        elapsed = 0
+        uiTimer?.invalidate()
+        uiTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+    }
+
+    private func tick() {
+        // Map -50 dB…0 dB onto 0…1, with a quick attack and a gentle decay.
+        let db = 20 * log10(max(meter.takePeak(), 1e-5))
+        let fresh = max(0, min(1, (db + 50) / 50))
+        let level = max(fresh, (levels.last ?? 0) * 0.8)
+        levels.removeFirst()
+        levels.append(level)
+        elapsed = Date().timeIntervalSince(startDate)
     }
 
     // MARK: Core Audio helpers
@@ -221,6 +287,70 @@ struct ModePicker: View {
     }
 }
 
+/// The nine bars of the app icon. Shows the logo at rest and a live level meter while recording.
+struct WaveBars: View {
+    static let barCount = 9
+    private static let profile: [CGFloat] = [140, 260, 420, 560, 380, 500, 300, 200, 120].map { $0 / 560 }
+    static let coral = Color(red: 0.949, green: 0.420, blue: 0.290)
+
+    /// nil shows the logo shape.
+    var levels: [Float]?
+    var height: CGFloat = 72
+
+    var body: some View {
+        HStack(spacing: height * 0.085) {
+            ForEach(0..<Self.barCount, id: \.self) { i in
+                Capsule()
+                    .fill(Self.coral)
+                    .frame(width: height * 0.1, height: barHeight(i))
+            }
+        }
+        .frame(height: height)
+        .animation(.easeOut(duration: 0.1), value: levels)
+    }
+
+    private func barHeight(_ i: Int) -> CGFloat {
+        let shape = Self.profile[i]
+        guard let levels else { return height * shape }
+        let level = CGFloat(levels[i])
+        return height * (0.1 + 0.9 * level * (0.5 + 0.5 * shape))
+    }
+}
+
+private extension View {
+    /// Translucent window background where the OS supports it.
+    @ViewBuilder func glassWindowBackground() -> some View {
+        if #available(macOS 15, *) {
+            self.containerBackground(.regularMaterial, for: .window)
+        } else {
+            self
+        }
+    }
+
+    /// Liquid Glass on macOS 26+, a flat tinted circle before that.
+    @ViewBuilder func recordButtonBackground(recording: Bool) -> some View {
+        let tint = recording ? Color.red.opacity(0.85) : Color.red
+        if #available(macOS 26, *) {
+            self.glassEffect(.regular.tint(tint).interactive(), in: .circle)
+        } else {
+            self.background(Circle().fill(tint))
+        }
+    }
+
+    @ViewBuilder func glassButton() -> some View {
+        if #available(macOS 26, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+}
+
+private func formatElapsed(_ t: TimeInterval) -> String {
+    let total = Int(t)
+    return String(format: "%02d:%02d", total / 60, total % 60)
+}
+
 struct ContentView: View {
     @ObservedObject var recorder: SystemAudioTapRecorder
     @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
@@ -228,44 +358,84 @@ struct ContentView: View {
     @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(folderPath)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        VStack(spacing: 20) {
+            WaveBars(levels: recorder.isRecording ? recorder.levels : nil)
+                .padding(.top, 8)
 
-            Button("Choose Folder…") {
-                if let path = chooseFolderPath() { folderPath = path }
+            VStack(spacing: 4) {
+                Text(recorder.isRecording ? formatElapsed(recorder.elapsed) : "Ready")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text(recorder.status)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            .disabled(recorder.isRecording)
 
-            Button(recorder.isRecording ? "Stop" : "Record") {
-                if recorder.isRecording {
-                    recorder.stop()
-                } else {
-                    folderPath = Settings.validFolderPath(folderPath)
-                    recorder.start(in: URL(fileURLWithPath: folderPath))
+            Button {
+                toggleRecording()
+            } label: {
+                ZStack {
+                    if recorder.isRecording {
+                        RoundedRectangle(cornerRadius: 5).fill(.white).frame(width: 22, height: 22)
+                    }
+                }
+                .frame(width: 72, height: 72)
+                .recordButtonBackground(recording: recorder.isRecording)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.defaultAction)
+            .help(recorder.isRecording ? "Stop recording" : "Start recording")
+
+            HStack(spacing: 8) {
+                Button {
+                    if let path = chooseFolderPath() { folderPath = path }
+                } label: {
+                    Label((folderPath as NSString).abbreviatingWithTildeInPath, systemImage: "folder")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .disabled(recorder.isRecording)
+                .help("Choose where recordings are saved")
+
+                if let url = recorder.lastFileURL, !recorder.isRecording {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } label: {
+                        Label("Show in Finder", systemImage: "magnifyingglass")
+                    }
                 }
             }
-            .keyboardShortcut(.defaultAction)
-            .controlSize(.large)
-
-            Text(recorder.status)
-                .font(.footnote)
+            .glassButton()
+            .controlSize(.small)
 
             ModePicker()
                 .pickerStyle(.segmented)
-                .frame(width: 240)
+                .labelsHidden()
+                .frame(width: 220)
         }
-        .padding(24)
+        .padding(28)
         .frame(width: 360)
+        .animation(.snappy, value: recorder.isRecording)
+        .glassWindowBackground()
         .onAppear {
             // Menu bar only: the scene opens a window at launch; close just that one.
             // Later appearances (e.g. "Show Window") must stay open.
             guard Settings.launchWindowPending else { return }
             Settings.launchWindowPending = false
             if mode == .menuBarOnly { dismissWindow(id: "main") }
+        }
+    }
+
+    private func toggleRecording() {
+        if recorder.isRecording {
+            recorder.stop()
+        } else {
+            folderPath = Settings.validFolderPath(folderPath)
+            recorder.start(in: URL(fileURLWithPath: folderPath))
         }
     }
 }
