@@ -6,6 +6,7 @@ import Foundation
 final class FakeRecorder: AudioRecording {
     var startError: Error?
     var peak: Float = 0
+    var pendingError: Error?
     private(set) var startedWith: (source: ResolvedSource, fileURL: URL)?
     private(set) var startCount = 0
     private(set) var stopCount = 0
@@ -18,6 +19,7 @@ final class FakeRecorder: AudioRecording {
 
     func stop() { stopCount += 1 }
     func takePeak() -> Float { peak }
+    func takeError() -> Error? { defer { pendingError = nil }; return pendingError }
 }
 
 /// A scratch folder that is deleted when the test ends.

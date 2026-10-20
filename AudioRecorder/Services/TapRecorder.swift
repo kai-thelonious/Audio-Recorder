@@ -13,12 +13,16 @@ protocol AudioRecording: AnyObject {
     func stop()
     /// The loudest sample since the last call (0…1), for the level meter.
     func takePeak() -> Float
+    /// The first error that happened while recording (for example a full disk), once.
+    func takeError() -> Error?
 }
 
 /// Core Audio engine: a process tap wrapped in a tap-only aggregate device,
 /// written to a 16-bit WAV file. Holds no UI state.
 final class TapRecorder: AudioRecording {
     private let meter = PeakMeter()
+    private let writeFailure = FailureBox()
+    private var createdFile = false
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
@@ -29,10 +33,14 @@ final class TapRecorder: AudioRecording {
     // MARK: Start
 
     func start(source: ResolvedSource, fileURL url: URL) throws {
+        writeFailure.reset()
+        createdFile = false
         do {
             try startCapture(source: source, fileURL: url)
         } catch {
             teardown()
+            // Don't leave an empty recording behind.
+            if createdFile { try? FileManager.default.removeItem(at: url) }
             throw error
         }
     }
@@ -92,6 +100,7 @@ final class TapRecorder: AudioRecording {
             commonFormat: format.commonFormat,
             interleaved: format.isInterleaved
         )
+        createdFile = true
 
         // 6. Receive audio buffers from the aggregate device
         status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, ioQueue) {
@@ -99,8 +108,9 @@ final class TapRecorder: AudioRecording {
             guard let self, let file = self.audioFile,
                   let pcm = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: inInputData)
             else { return }
+            guard !self.writeFailure.hasFailed else { return }
             self.meter.record(pcm)
-            try? file.write(from: pcm)
+            do { try file.write(from: pcm) } catch { self.writeFailure.record(error) }
         }
         guard status == noErr else { throw TapError.osStatus("Create IO proc", status) }
 
@@ -116,6 +126,10 @@ final class TapRecorder: AudioRecording {
 
     func takePeak() -> Float {
         meter.takePeak()
+    }
+
+    func takeError() -> Error? {
+        writeFailure.take()
     }
 
     private func teardown() {
