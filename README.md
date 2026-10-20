@@ -42,6 +42,16 @@ If you denied the permission by accident, enable AudioRecorder under
 
 The recorder creates a global `CATapDescription` tap of all system audio, wraps it in a private aggregate device with no sub-devices (so it runs on the tap's own clock and sample rate), and writes the buffers it receives to disk with `AVAudioFile`. See `AudioRecorder/MyApp.swift`.
 
+## Running the tests
+
+In Xcode press **⌘U**, or from a terminal:
+
+```bash
+xcodebuild test -scheme AudioRecorder -destination 'platform=macOS'
+```
+
+The tests cover the logic that doesn't need audio hardware: file naming, the level meter, saved settings, the recorder view model (with a fake recorder) and the trim/export code.
+
 ## Project structure
 
 ```
@@ -51,6 +61,7 @@ AudioRecorder/
   Services/     Core Audio recording (`TapRecorder`), app/process discovery, waveform loading, folder picker
   ViewModels/   observable state for the views (RecorderViewModel is shared by the window, menu bar and trim editor)
   Views/        SwiftUI views and shared styling
+AudioRecorderTests/   unit tests (Swift Testing)
 ```
 
 ## License
