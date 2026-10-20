@@ -167,7 +167,7 @@ enum AppMode: String, CaseIterable, Identifiable {
 
     /// Dock icon in window mode, none in menu bar only mode.
     func applyActivationPolicy() {
-        NSApp.setActivationPolicy(self == .window ? .regular : .accessory)
+        NSApplication.shared.setActivationPolicy(self == .window ? .regular : .accessory)
     }
 }
 
