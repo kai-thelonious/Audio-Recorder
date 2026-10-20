@@ -14,6 +14,8 @@ It uses Core Audio process taps, so it captures system audio directly: no virtua
 2. Optionally click **Choose Folder…** to pick where recordings are saved (defaults to `~/Music`).
 3. Click **Record**. The first time, macOS asks for permission to capture system audio — click **Allow**.
 4. Click **Stop**. The recording is saved as `Recording <date> <time>.wav` (16-bit PCM, stereo).
+5. Click **Trim** to open the editor: drag the start and end handles on the waveform, press **Play** (or Space) to preview the selection, then **Save Trim**. The trim is written as `<name> (trimmed).wav` next to the original, which is never modified.
+6. Drag the **Drag file** chip into Finder or a DAW to copy the file (the trimmed version once saved, otherwise the original).
 
 ### Menu bar mode
 
