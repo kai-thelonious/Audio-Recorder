@@ -47,9 +47,9 @@ The recorder creates a global `CATapDescription` tap of all system audio, wraps 
 ```
 AudioRecorder/
   App/          app entry point and scenes
-  Models/       plain data types (AppMode, Settings, AudioApp, TrimSource)
-  Services/     Core Audio recording, app/process discovery, waveform loading, folder picker
-  ViewModels/   observable state for the views (AudioSourceList, TrimModel)
+  Models/       plain data types and helpers (AppMode, Settings, AudioApp, RecordingFileName, TrimSource)
+  Services/     Core Audio recording (`TapRecorder`), app/process discovery, waveform loading, folder picker
+  ViewModels/   observable state for the views (RecorderViewModel is shared by the window, menu bar and trim editor)
   Views/        SwiftUI views and shared styling
 ```
 

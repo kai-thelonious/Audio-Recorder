@@ -7,7 +7,7 @@ private func formatElapsed(_ t: TimeInterval) -> String {
 }
 
 struct ContentView: View {
-    @ObservedObject var recorder: SystemAudioTapRecorder
+    let recorder: RecorderViewModel
     @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
     @AppStorage(Settings.modeKey) private var mode = AppMode.window
     @Environment(\.dismissWindow) private var dismissWindow
@@ -31,7 +31,7 @@ struct ContentView: View {
             }
 
             Button {
-                toggleRecording()
+                recorder.toggleRecording()
             } label: {
                 ZStack {
                     if recorder.isRecording {
@@ -94,15 +94,6 @@ struct ContentView: View {
             guard Settings.launchWindowPending else { return }
             Settings.launchWindowPending = false
             if mode == .menuBarOnly { dismissWindow(id: "main") }
-        }
-    }
-
-    private func toggleRecording() {
-        if recorder.isRecording {
-            recorder.stop()
-        } else {
-            folderPath = Settings.validFolderPath(folderPath)
-            recorder.start(in: URL(fileURLWithPath: folderPath))
         }
     }
 }
