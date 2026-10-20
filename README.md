@@ -43,8 +43,9 @@ If you denied the permission by accident, enable AudioRecorder under
 ## Building from source
 
 1. Open `AudioRecorder.xcodeproj` in Xcode.
-2. Under the AudioRecorder target's **Signing & Capabilities**, choose your own team.
-3. Build and run (⌘R).
+2. Build and run (⌘R). Without an Apple Developer team the app is signed ad hoc, which is enough to run it on your own Mac.
+
+To sign with your own team (for example to distribute the app), copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set `DEVELOPMENT_TEAM` in it. That file is git-ignored, so your team ID never ends up in the project file or in a commit. Please don't set the team in Xcode's **Signing & Capabilities** tab, because that writes it into the project file.
 
 ## How it works
 
@@ -70,6 +71,7 @@ AudioRecorder/
   ViewModels/   observable state for the views (RecorderViewModel is shared by the window, menu bar and trim editor)
   Views/        SwiftUI views and shared styling
 AudioRecorderTests/   unit tests (Swift Testing)
+Config/       build settings (Shared.xcconfig; your own signing goes in the git-ignored Local.xcconfig)
 ```
 
 ## License
