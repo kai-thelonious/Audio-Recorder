@@ -1,0 +1,340 @@
+import SwiftUI
+import Combine
+import AVFoundation
+import AppKit
+
+/// Identifies one editor session, so the sheet keeps its file even after a trim becomes `lastFileURL`.
+struct TrimSource: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+@MainActor
+final class TrimModel: ObservableObject {
+    let sourceURL: URL
+    @Published var data: WaveformData?
+    @Published var errorText: String?
+    @Published var start: Double = 0        // seconds
+    @Published var end: Double = 0          // seconds
+    @Published var playhead: Double = 0     // seconds
+    @Published var isPlaying = false
+    @Published var isSaving = false
+    @Published var savedURL: URL?
+
+    private var player: AVAudioPlayer?
+    private var timer: Timer?
+
+    static let minLength = 0.05
+
+    init(sourceURL: URL) { self.sourceURL = sourceURL }
+
+    var duration: Double { data?.duration ?? 0 }
+    /// What drag-out hands over: the saved trim if there is one, else the original.
+    var dragURL: URL { savedURL ?? sourceURL }
+
+    func load() async {
+        let url = sourceURL
+        do {
+            let result = try await Task.detached(priority: .userInitiated) {
+                try WaveformLoader.load(url: url)
+            }.value
+            data = result
+            start = 0
+            end = result.duration
+            playhead = 0
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.prepareToPlay()
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    // MARK: Selection
+
+    func setStart(_ value: Double) {
+        stopPlayback()
+        start = min(max(0, value), end - Self.minLength)
+        playhead = start
+    }
+
+    func setEnd(_ value: Double) {
+        stopPlayback()
+        end = max(min(duration, value), start + Self.minLength)
+        playhead = start
+    }
+
+    // MARK: Preview
+
+    func togglePlayback() {
+        isPlaying ? pause() : play()
+    }
+
+    private func play() {
+        guard let player else { return }
+        if playhead < start || playhead >= end - 0.01 { playhead = start }
+        player.currentTime = playhead
+        guard player.play() else { return }
+        isPlaying = true
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+    }
+
+    private func pause() {
+        player?.pause()
+        isPlaying = false
+        timer?.invalidate()
+        timer = nil
+    }
+
+    func stopPlayback() {
+        pause()
+        playhead = start
+    }
+
+    private func tick() {
+        guard let player else { return }
+        playhead = player.currentTime
+        if playhead >= end || !player.isPlaying {
+            player.pause()
+            pause()
+            playhead = start
+        }
+    }
+
+    // MARK: Save
+
+    func save() async -> URL? {
+        guard let data else { return nil }
+        stopPlayback()
+        isSaving = true
+        defer { isSaving = false }
+        let url = sourceURL
+        let rate = data.sampleRate
+        let s = AVAudioFramePosition((start * rate).rounded())
+        let e = min(data.frameCount, AVAudioFramePosition((end * rate).rounded()))
+        do {
+            let out = try await Task.detached(priority: .userInitiated) {
+                try WaveformLoader.exportTrim(of: url, startFrame: s, endFrame: e)
+            }.value
+            savedURL = out
+            errorText = nil
+            return out
+        } catch {
+            errorText = "Save failed: \(error.localizedDescription)"
+            return nil
+        }
+    }
+}
+
+// MARK: - Views
+
+private func formatTime(_ t: Double) -> String {
+    let t = max(0, t)
+    let minutes = Int(t) / 60
+    let seconds = t - Double(minutes * 60)
+    return String(format: "%d:%05.2f", minutes, seconds)
+}
+
+private extension View {
+    @ViewBuilder func trimGlassButton() -> some View {
+        if #available(macOS 26, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder func trimSheetBackground() -> some View {
+        if #available(macOS 15, *) {
+            self.containerBackground(.regularMaterial, for: .window)
+        } else {
+            self
+        }
+    }
+}
+
+struct TrimEditorView: View {
+    @ObservedObject var recorder: SystemAudioTapRecorder
+    @StateObject private var model: TrimModel
+    @Environment(\.dismiss) private var dismiss
+
+    init(source: TrimSource, recorder: SystemAudioTapRecorder) {
+        self.recorder = recorder
+        _model = StateObject(wrappedValue: TrimModel(sourceURL: source.url))
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(model.sourceURL.lastPathComponent)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            if model.data != nil {
+                WaveformTrimView(model: model)
+                    .frame(height: 120)
+
+                HStack {
+                    timeLabel("Start", model.start)
+                    Spacer()
+                    timeLabel("Length", model.end - model.start)
+                    Spacer()
+                    timeLabel("End", model.end)
+                }
+            } else if let error = model.errorText {
+                Text(error).foregroundStyle(.secondary).frame(height: 120)
+            } else {
+                ProgressView().frame(height: 120)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    model.togglePlayback()
+                } label: {
+                    Label(model.isPlaying ? "Pause" : "Play", systemImage: model.isPlaying ? "pause.fill" : "play.fill")
+                }
+                .disabled(model.data == nil)
+                .keyboardShortcut(.space, modifiers: [])
+
+                Button {
+                    Task {
+                        if let url = await model.save() {
+                            recorder.lastFileURL = url
+                            recorder.status = "Saved: \(url.lastPathComponent)"
+                        }
+                    }
+                } label: {
+                    Label("Save Trim", systemImage: "scissors")
+                }
+                .disabled(model.data == nil || model.isSaving)
+                .help("Saves a new file next to the original; the original is untouched")
+
+                if let saved = model.savedURL {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([saved])
+                    } label: {
+                        Label("Show in Finder", systemImage: "magnifyingglass")
+                    }
+                }
+            }
+            .trimGlassButton()
+            .controlSize(.small)
+
+            if model.data != nil {
+                DragChip(url: model.dragURL, isTrim: model.savedURL != nil)
+            }
+
+            if model.data != nil, let error = model.errorText {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+
+            Button("Done") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .trimGlassButton()
+                .controlSize(.small)
+        }
+        .padding(24)
+        .frame(width: 520)
+        .trimSheetBackground()
+        .task { await model.load() }
+        .onDisappear { model.stopPlayback() }
+    }
+
+    private func timeLabel(_ title: String, _ value: Double) -> some View {
+        VStack(spacing: 2) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(formatTime(value)).font(.system(.body, design: .rounded)).monospacedDigit()
+        }
+    }
+}
+
+/// A grabbable file chip: drop it on Finder or a DAW to copy the file.
+private struct DragChip: View {
+    let url: URL
+    let isTrim: Bool
+
+    var body: some View {
+        Label(isTrim ? "Drag trimmed file" : "Drag original file", systemImage: "arrow.up.doc")
+            .font(.callout)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(.quaternary))
+            .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
+            .help(url.lastPathComponent)
+    }
+}
+
+private struct WaveformTrimView: View {
+    @ObservedObject var model: TrimModel
+    private let handleWidth: CGFloat = 14
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let duration = max(model.duration, 0.001)
+            let startX = w * model.start / duration
+            let endX = w * model.end / duration
+            let playX = w * model.playhead / duration
+
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.12))
+
+                Canvas { context, size in
+                    let peaks = model.data?.peaks ?? []
+                    guard !peaks.isEmpty else { return }
+                    let step = size.width / CGFloat(peaks.count)
+                    for (i, p) in peaks.enumerated() {
+                        let barH = max(2, CGFloat(p) * size.height * 0.9)
+                        let rect = CGRect(x: CGFloat(i) * step, y: (size.height - barH) / 2,
+                                          width: max(1, step - 1), height: barH)
+                        context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(WaveBars.coral))
+                    }
+                }
+
+                // Shade outside the selection
+                Rectangle().fill(.black.opacity(0.45)).frame(width: startX, height: h)
+                Rectangle().fill(.black.opacity(0.45)).frame(width: max(0, w - endX), height: h)
+                    .offset(x: endX)
+
+                // Selection outline
+                Rectangle()
+                    .strokeBorder(.white.opacity(0.7), lineWidth: 1)
+                    .frame(width: max(0, endX - startX), height: h)
+                    .offset(x: startX)
+                    .allowsHitTesting(false)
+
+                // Playhead
+                if model.isPlaying || model.playhead > model.start {
+                    Rectangle().fill(.white).frame(width: 2, height: h)
+                        .offset(x: playX - 1)
+                        .allowsHitTesting(false)
+                }
+
+                handle(at: startX, height: h)
+                    .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
+                        model.setStart(Double(value.location.x / w) * duration)
+                    })
+                handle(at: endX - handleWidth, height: h)
+                    .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("wave")).onChanged { value in
+                        model.setEnd(Double(value.location.x / w) * duration)
+                    })
+            }
+            .coordinateSpace(name: "wave")
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private func handle(at x: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 3)
+            .fill(.white)
+            .overlay(Capsule().fill(.black.opacity(0.4)).frame(width: 2, height: 24))
+            .frame(width: handleWidth, height: height)
+            .offset(x: x)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+            }
+    }
+}

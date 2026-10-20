@@ -365,6 +365,7 @@ struct ContentView: View {
     @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
     @AppStorage(Settings.modeKey) private var mode = AppMode.window
     @Environment(\.dismissWindow) private var dismissWindow
+    @State private var trimSource: TrimSource?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -420,6 +421,12 @@ struct ContentView: View {
                     } label: {
                         Label("Show in Finder", systemImage: "magnifyingglass")
                     }
+
+                    Button {
+                        trimSource = TrimSource(url: url)
+                    } label: {
+                        Label("Trim", systemImage: "scissors")
+                    }
                 }
             }
             .glassButton()
@@ -434,6 +441,7 @@ struct ContentView: View {
         .frame(width: 360)
         .animation(.snappy, value: recorder.isRecording)
         .glassWindowBackground()
+        .sheet(item: $trimSource) { TrimEditorView(source: $0, recorder: recorder) }
         .onAppear {
             // Menu bar only: the scene opens a window at launch; close just that one.
             // Later appearances (e.g. "Show Window") must stay open.
