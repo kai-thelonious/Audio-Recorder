@@ -61,6 +61,16 @@ xcodebuild test -scheme AudioRecorder -destination 'platform=macOS'
 
 The tests cover the logic that doesn't need audio hardware: file naming, the level meter, saved settings, the recorder view model (with a fake recorder) and the trim/export code.
 
+CI runs the tests on macOS 26 and macOS 15 and prints a code coverage table on each run's summary page. The numbers count lines run while the app hosts the tests, so views look better covered than they are, and the real Core Audio recording path is not covered at all.
+
+### Formatting
+
+The code is formatted with `swift-format`, which ships with Xcode, using the rules in `.swift-format`. CI fails the **Lint** job on any difference. To fix everything in one go:
+
+```bash
+xcrun swift-format format --in-place --recursive AudioRecorder AudioRecorderTests
+```
+
 ## Project structure
 
 ```
