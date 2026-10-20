@@ -176,6 +176,13 @@ enum Settings {
     static let folderKey = "saveFolderPath"
     static let defaultFolderPath = FileManager.default
         .urls(for: .musicDirectory, in: .userDomainMask).first!.path
+
+    /// The saved folder if it still exists, otherwise ~/Music.
+    static func validFolderPath(_ path: String) -> String {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+        return exists && isDirectory.boolValue ? path : defaultFolderPath
+    }
 }
 
 /// Shows an open panel and returns the chosen folder path, or nil if cancelled.
@@ -234,6 +241,7 @@ struct ContentView: View {
                 if recorder.isRecording {
                     recorder.stop()
                 } else {
+                    folderPath = Settings.validFolderPath(folderPath)
                     recorder.start(in: URL(fileURLWithPath: folderPath))
                 }
             }
@@ -266,6 +274,7 @@ struct MenuBarContent: View {
             if recorder.isRecording {
                 recorder.stop()
             } else {
+                folderPath = Settings.validFolderPath(folderPath)
                 recorder.start(in: URL(fileURLWithPath: folderPath))
             }
         }
