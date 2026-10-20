@@ -10,6 +10,7 @@ struct WaveBars: View {
     /// nil shows the logo shape.
     var levels: [Float]?
     var height: CGFloat = 72
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: height * 0.085) {
@@ -20,7 +21,8 @@ struct WaveBars: View {
             }
         }
         .frame(height: height)
-        .animation(.easeOut(duration: 0.1), value: levels)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: levels)
+        .accessibilityHidden(true)   // decorative; the timer and status carry the information
     }
 
     private func barHeight(_ i: Int) -> CGFloat {
