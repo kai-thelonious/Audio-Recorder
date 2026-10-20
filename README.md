@@ -15,6 +15,17 @@ It uses Core Audio process taps, so it captures system audio directly: no virtua
 3. Click **Record**. The first time, macOS asks for permission to capture system audio — click **Allow**.
 4. Click **Stop**. The recording is saved as `Recording <date> <time>.wav` (16-bit PCM, stereo).
 
+### Menu bar mode
+
+AudioRecorder always shows a menu bar icon (a waveform, which turns into a red record symbol while recording). Click it to start/stop recording, see the current folder and status, choose a folder, or quit.
+
+Use the **Mode** picker (in the window or the menu bar menu) to switch between:
+
+- **Window** – the normal app with a window and Dock icon.
+- **Menu bar only** – no Dock icon and no window on launch; everything is in the menu bar. Choose **Show Window** in the menu to bring the window back temporarily.
+
+The mode and the save folder are remembered between launches.
+
 If you denied the permission by accident, enable AudioRecorder under
 **System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only**.
 

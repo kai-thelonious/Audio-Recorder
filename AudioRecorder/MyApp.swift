@@ -157,29 +157,84 @@ final class SystemAudioTapRecorder: ObservableObject {
     }
 }
 
+// MARK: - Settings
+
+enum AppMode: String, CaseIterable, Identifiable {
+    case window = "Window"
+    case menuBarOnly = "Menu bar only"
+
+    var id: String { rawValue }
+
+    /// Dock icon in window mode, none in menu bar only mode.
+    func applyActivationPolicy() {
+        NSApp.setActivationPolicy(self == .window ? .regular : .accessory)
+    }
+}
+
+enum Settings {
+    static let modeKey = "appMode"
+    static let folderKey = "saveFolderPath"
+    static let defaultFolderPath = FileManager.default
+        .urls(for: .musicDirectory, in: .userDomainMask).first!.path
+}
+
+/// Shows an open panel and returns the chosen folder path, or nil if cancelled.
+private func chooseFolderPath() -> String? {
+    NSApp.activate(ignoringOtherApps: true)
+    let panel = NSOpenPanel()
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.canCreateDirectories = true
+    return panel.runModal() == .OK ? panel.url?.path : nil
+}
+
 // MARK: - UI
 
+struct ModePicker: View {
+    @AppStorage(Settings.modeKey) private var mode = AppMode.window
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        Picker("Mode", selection: $mode) {
+            ForEach(AppMode.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .onChange(of: mode) { _, newMode in
+            newMode.applyActivationPolicy()
+            if newMode == .window {
+                openWindow(id: "main")
+                NSApp.activate(ignoringOtherApps: true)
+            } else {
+                dismissWindow(id: "main")
+            }
+        }
+    }
+}
+
 struct ContentView: View {
-    @StateObject private var recorder = SystemAudioTapRecorder()
-    @State private var folder: URL = FileManager.default
-        .urls(for: .musicDirectory, in: .userDomainMask).first!
+    @ObservedObject var recorder: SystemAudioTapRecorder
+    @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
+    @AppStorage(Settings.modeKey) private var mode = AppMode.window
+    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(folder.path)
+            Text(folderPath)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
-            Button("Choose Folder…") { chooseFolder() }
-                .disabled(recorder.isRecording)
+            Button("Choose Folder…") {
+                if let path = chooseFolderPath() { folderPath = path }
+            }
+            .disabled(recorder.isRecording)
 
             Button(recorder.isRecording ? "Stop" : "Record") {
                 if recorder.isRecording {
                     recorder.stop()
                 } else {
-                    recorder.start(in: folder)
+                    recorder.start(in: URL(fileURLWithPath: folderPath))
                 }
             }
             .keyboardShortcut(.defaultAction)
@@ -187,25 +242,79 @@ struct ContentView: View {
 
             Text(recorder.status)
                 .font(.footnote)
+
+            ModePicker()
+                .pickerStyle(.segmented)
+                .frame(width: 240)
         }
         .padding(24)
         .frame(width: 360)
-    }
-
-    private func chooseFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        if panel.runModal() == .OK, let url = panel.url {
-            folder = url
+        .onAppear {
+            // Menu bar only: the window group opens a window at launch; close it.
+            if mode == .menuBarOnly { dismissWindow(id: "main") }
         }
+    }
+}
+
+struct MenuBarContent: View {
+    @ObservedObject var recorder: SystemAudioTapRecorder
+    @AppStorage(Settings.folderKey) private var folderPath = Settings.defaultFolderPath
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(recorder.isRecording ? "Stop Recording" : "Start Recording") {
+            if recorder.isRecording {
+                recorder.stop()
+            } else {
+                recorder.start(in: URL(fileURLWithPath: folderPath))
+            }
+        }
+        Text(recorder.status)
+
+        Divider()
+
+        Text("Folder: \((folderPath as NSString).abbreviatingWithTildeInPath)")
+        Button("Choose Folder…") {
+            if let path = chooseFolderPath() { folderPath = path }
+        }
+        .disabled(recorder.isRecording)
+
+        Divider()
+
+        ModePicker()
+        Button("Show Window") {
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        Divider()
+
+        Button("Quit AudioRecorder") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
     }
 }
 
 @main
 struct SystemAudioTapRecorderApp: App {
+    @StateObject private var recorder = SystemAudioTapRecorder()
+
+    init() {
+        // @AppStorage isn't usable here yet, so read the saved mode directly.
+        let saved = UserDefaults.standard.string(forKey: Settings.modeKey)
+        (AppMode(rawValue: saved ?? "") ?? .window).applyActivationPolicy()
+    }
+
     var body: some Scene {
-        WindowGroup { ContentView() }
+        Window("AudioRecorder", id: "main") {
+            ContentView(recorder: recorder)
+        }
+        .windowResizability(.contentSize)
+
+        MenuBarExtra {
+            MenuBarContent(recorder: recorder)
+        } label: {
+            Image(systemName: recorder.isRecording ? "record.circle.fill" : "waveform")
+                .foregroundStyle(recorder.isRecording ? Color.red : Color.primary)
+        }
     }
 }
