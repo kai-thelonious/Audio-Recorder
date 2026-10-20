@@ -29,10 +29,11 @@ release will be 0.1.0.
 - A full disk used to stop saving silently while the app still showed "Recording…"; it now stops and says why, keeping what was recorded. ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
 - Starting two recordings in the same second could overwrite one with the other; names now get ` 2`, ` 3`, … ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
 - A failed start no longer leaves an empty file behind. ([#8](https://github.com/kai-thelonious/Audio-Recorder/pull/8))
+- **Crash-safe recordings**: the WAV header is refreshed about once a second while recording, so a crash or force-quit keeps the audio instead of leaving a file that reports zero length.
 - Launch crash in menu bar mode, **Show Window** closing immediately in menu-bar-only mode, and recording failing when the saved folder had been deleted (it now falls back to `~/Music`).
 
 ### Known limitations
-- A crash or force-quit during a recording still leaves a file with a zero-length header.
+- A crash or force-quit during a recording can lose the last second or two of audio.
 - macOS 14 is the stated minimum but is not tested: CI covers macOS 15 and 26 only.
 
 [Unreleased]: https://github.com/kai-thelonious/Audio-Recorder/commits/main
