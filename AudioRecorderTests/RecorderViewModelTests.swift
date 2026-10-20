@@ -177,6 +177,83 @@ struct RecorderViewModelTests {
         #expect(model.status == "Idle")
     }
 
+    // MARK: Silence hint
+
+    @Test func noHintBeforeTheDelay() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        t.recorder.peak = 0
+        clock = clock.addingTimeInterval(2.9)
+        t.model.tick()
+        #expect(t.model.silenceHint == nil)
+        t.model.stop()
+    }
+
+    @Test func hintAppearsAfterThreeSecondsOfSilence() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        t.recorder.peak = 0
+        clock = clock.addingTimeInterval(3.1)
+        t.model.tick()
+        #expect(t.model.silenceHint == RecorderViewModel.silenceMessage)
+        t.model.stop()
+    }
+
+    @Test func noHintOnceAudioHasBeenHeard() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        t.recorder.peak = 0.2
+        clock = clock.addingTimeInterval(1)
+        t.model.tick()
+        // A quiet passage later in the recording must not trigger the warning.
+        t.recorder.peak = 0
+        clock = clock.addingTimeInterval(10)
+        t.model.tick()
+        #expect(t.model.silenceHint == nil)
+        t.model.stop()
+    }
+
+    @Test func hintDisappearsWhenSoundStarts() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        clock = clock.addingTimeInterval(4)
+        t.model.tick()
+        #expect(t.model.silenceHint != nil)
+        t.recorder.peak = 0.5
+        t.model.tick()
+        #expect(t.model.silenceHint == nil)
+        t.model.stop()
+    }
+
+    @Test func hintIsClearedWhenRecordingStopsAndStartsFresh() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        clock = clock.addingTimeInterval(4)
+        t.model.tick()
+        #expect(t.model.silenceHint != nil)
+        t.model.stop()
+        #expect(t.model.silenceHint == nil)
+        t.model.start()
+        #expect(t.model.silenceHint == nil)
+        t.model.stop()
+    }
+
+    @Test func veryQuietSoundCountsAsAudio() throws {
+        var clock = Date(timeIntervalSince1970: 1_000)
+        let t = try makeModel(now: { clock }); defer { t.folder.remove() }
+        t.model.start()
+        t.recorder.peak = 0.001     // -60 dB: quiet, but not silence
+        clock = clock.addingTimeInterval(5)
+        t.model.tick()
+        #expect(t.model.silenceHint == nil)
+        t.model.stop()
+    }
+
     @Test func savingATrimUpdatesTheLastFileAndStatus() throws {
         let t = try makeModel(); defer { t.folder.remove() }
         let trimmed = t.folder.url.appendingPathComponent("Recording (trimmed).wav")

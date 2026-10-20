@@ -35,6 +35,8 @@ Use the **Mode** picker (in the window or the menu bar menu) to switch between:
 
 The mode and the save folder are remembered between launches.
 
+If nothing but silence has been captured three seconds into a recording, the window shows a "No audio detected" hint. It appears when nothing is playing, and also when the permission was denied, because macOS then delivers silence instead of an error.
+
 If you denied the permission by accident, enable AudioRecorder under
 **System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only**.
 
