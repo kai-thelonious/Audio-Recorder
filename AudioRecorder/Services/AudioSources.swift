@@ -61,30 +61,15 @@ enum AudioSources {
         }
     }
 
-    /// The app an audio process belongs to: same bundle ID, a helper whose bundle
-    /// ID extends the app's (com.google.Chrome.helper), a descendant process, or
-    /// WebKit's shared helpers for Safari.
+    /// The app an audio process belongs to (see `AppMatching.owner`).
     private static func owner(of process: AudioProcess, in apps: [NSRunningApplication]) -> NSRunningApplication? {
-        let id = process.bundleID
-        var best: NSRunningApplication?
-        var bestLength = 0
-        for app in apps {
-            guard let appID = app.bundleIdentifier else { continue }
-            if app.processIdentifier == process.pid { return app }
-            let matches = id == appID || id.hasPrefix(appID + ".")
-                || (appID == "com.apple.Safari" && id.hasPrefix("com.apple.WebKit."))
-            if matches, appID.count > bestLength { best = app; bestLength = appID.count }
+        let running = apps.compactMap { app in
+            app.bundleIdentifier.map { RunningApp(bundleID: $0, pid: app.processIdentifier) }
         }
-        if let best { return best }
-        // Fall back to the process tree (helpers with unrelated bundle IDs).
-        var pid = parent(of: process.pid)
-        var hops = 0
-        while pid > 1, hops < 8 {
-            if let app = apps.first(where: { $0.processIdentifier == pid }) { return app }
-            pid = parent(of: pid)
-            hops += 1
-        }
-        return nil
+        guard let match = AppMatching.owner(
+            ofProcessWithBundleID: process.bundleID, pid: process.pid, in: running, parentOf: { Self.parent(of: $0) }
+        ) else { return nil }
+        return apps.first { $0.processIdentifier == match.pid }
     }
 
     private static func parent(of pid: pid_t) -> pid_t {
